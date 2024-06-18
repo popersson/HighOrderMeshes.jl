@@ -110,15 +110,12 @@ end
 mkface2nodes(fe::FiniteElement) = mkface2nodes(elgeom(fe), fe.ref_nodes.face, fe.ref_nodes.vol)
 
 function unique_mesh_nodes(x, el)
-    x = snap.(x)
-
-    xx = unique(eachrow(x))
-    ix = indexin(xx, eachrow(x))
-    jx = indexin(eachrow(x), xx)
-
+    xx = snap.(x)
+    xxx = unique(eachrow(xx))
+    ix = indexin(xxx, collect(eachrow(xx))) # collect needed < v1.9
+    jx = indexin(eachrow(xx), xxx)
     x = x[ix,:]
     el = reshape(jx, size(el))
-
     x,el
 end 
 
