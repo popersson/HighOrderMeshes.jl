@@ -175,7 +175,7 @@ function Plots.plot(m::HighOrderMesh{D,G,P,T}, u::Array{T}; nsub=nothing) where 
     if D == 1
         return Plots.plot(allx[allel1], allu[allel1], color=:black, legend=false)
     elseif D == 2
-        return Plots.tripcolor(allx[:,1], allx[:,2], allu, allel1, color=:viridis, aspect_ratio=:equal)
+        return TriplotRecipes.tripcolor(allx[:,1], allx[:,2], allu, allel1, color=:viridis, aspect_ratio=:equal)
     else
         throw("Dimension not implemented")
     end

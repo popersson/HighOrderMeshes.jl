@@ -307,7 +307,7 @@ function gmsh2msh(gmsh_fname)
     #el = elmap[el]
     #x = xcg[:,xkeep]
 
-    m = Mesh(FiniteElement(elgeom,porder), xcg', el)
+    m = HighOrderMesh(FiniteElement(elgeom,porder), xcg', el)
 
     #m = Mesh(x,el)
     #m = change_degree(m, porder)

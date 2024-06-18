@@ -20,4 +20,6 @@ using Plots, TriplotRecipes
 
 include("plotting.jl")
 
+include("../examples/sample-meshes.jl")
+
 end
