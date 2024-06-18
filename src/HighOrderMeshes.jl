@@ -7,7 +7,7 @@ export FiniteElement, elgeom, dim, porder, nbr_ho_nodes, corner_nodes, name
 export eval_shapefcns, eval_fcn
 export HighOrderMesh, dg_nodes, elgeom, dim, porder, el2nbor, change_ref_nodes, change_degree
 export write_matrix, read_matrix!, savemesh, loadmesh, uniref, gmsh2msh, rungmsh2msh, vtkwrite
-export blockmesh_hypercube, mshcube, mshsquare, mshline
+export blockmesh_hypercube, mshhypercube, mshcube, mshsquare, mshline
 export plot
 
 include("element-geometry.jl")
