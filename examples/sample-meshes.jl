@@ -6,7 +6,7 @@ sample_mesh(::Simplex{2}) = [0 0; 1 0; 0 1; 1 1; .7 .5],
                             [[1,2,5] [2,4,5] [4,3,5] [3,1,5]]
 sample_fcn(x) = sin.(-sum((x.-0.5).^2/0.2^2,dims=ndims(x)))
 
-function ex1mesh(nref=3, eg=Block{2}())
+function ex1mesh(; nref=3, eg=Block{2}())
     x,el = sample_mesh(eg)
     m = HighOrderMesh(x,el)
     m = uniref(m,nref)
