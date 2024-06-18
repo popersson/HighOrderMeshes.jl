@@ -10,7 +10,7 @@ function Plots.plot(m::HighOrderMesh{2,G,P,T};
     xdg = dg_nodes(m)
     order = plot_face_order(G())
     nf, nel = size(m.nbor)
-    curves = fill(Float64[;;], nf, nel)
+    curves = fill(zeros(F,0,0), nf, nel)
     for iel = 1:nel, iface = 1:nf
         jel, jface = m.nbor[iface, iel]
         if iel < jel || jel < 1
