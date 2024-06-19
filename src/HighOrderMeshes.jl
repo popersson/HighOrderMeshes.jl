@@ -10,16 +10,16 @@ export write_matrix, read_matrix!, savemesh, loadmesh, uniref, gmsh2msh, rungmsh
 export blockmesh_hypercube, mshhypercube, mshcube, mshsquare, mshline
 export plot
 
-include("element-geometry.jl")
-include("finite-element.jl")
-include("high-order-mesh.jl")
-include("mesh-utils.jl")
-include("basic-meshes.jl")
+include("element_geometry.jl")
+include("finite_element.jl")
+include("high_order_mesh.jl")
+include("mesh_utils.jl")
+include("basic_meshes.jl")
 
 using Plots, TriplotRecipes
 
 include("plotting.jl")
 
-include("../examples/sample-meshes.jl")
+include("../examples/sample_meshes.jl")
 
 end
