@@ -1,4 +1,4 @@
-const meshgreen = Plots.RGB(0.8, 1, 0.8)
+const meshgreen = Plots.RGBX(0.8, 1, 0.8)
 function Plots.plot(m::HighOrderMesh{2,G,P,T};
     labels=(), reltol=1e-3, abstol=Inf, maxref=6,
     colors=(meshgreen, :black, :blue, :darkgray, :darkblue)
