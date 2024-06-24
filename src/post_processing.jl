@@ -1,10 +1,5 @@
-const meshgreen = Plots.RGBX(0.8, 1, 0.8)
-function Plots.plot(m::HighOrderMesh{2,G,P,T};
-    labels=(), reltol=1e-3, abstol=Inf, maxref=6,
-    colors=(meshgreen, :black, :blue, :darkgray, :darkblue)
-    # colors: elements, int edges, bnd edges, ho-nodes, vertices
-) where {G,P,T}
-
+function viz_mesh(m::HighOrderMesh{2,G,P,T};
+                  reltol=1e-3, abstol=Inf, maxref=6) where {G,P,T}
     F = Float64
     f2n = mkface2nodes(m.fe)
     xdg = dg_nodes(m)
@@ -78,36 +73,11 @@ function Plots.plot(m::HighOrderMesh{2,G,P,T};
     int_lines = vcat(int_lines...)
     bnd_lines = vcat(bnd_lines...)
 
-    h = Plots.plot(aspect_ratio=:equal, leg=false)
-    Plots.plot!(elem_lines[:, 1], elem_lines[:, 2], seriestype=:shape,
-        linecolor=nothing, fillcolor=colors[1])
-    Plots.plot!(int_lines[:, 1], int_lines[:, 2], linewidth=1, color=colors[2])
-    Plots.plot!(bnd_lines[:, 1], bnd_lines[:, 2], linewidth=2, color=colors[3])
-
-    ### Labels
-
-    if isa(labels, Symbol)
-        labels = (labels,)
-    end
-
-    if :nodes in labels
-        scatter!(xdg[:,:,1], xdg[:,:,2], marker=(:circle, 2, 1.0, colors[4]))
-    end
-
-    if :elements in labels
-        mid = midpoint(G())
-        if :nodes in labels && any(all(m.fe.ref_nodes.vol .- mid' .≈ 0, dims=2))
-            mid .*= (P - 1) / P
-        end
-        mids = eval_fcn(m.fe, xdg, mid')[1,:,:]
-        for iel = 1:nel
-            annotate!(mids[iel,1], mids[iel,2], text("$iel", 8, :center))
-        end
-    end
-
-    return h
+    mid = midpoint(G())
+    elem_mid = eval_fcn(m.fe, xdg, mid')[1,:,:]
+    
+    elem_lines, int_lines, bnd_lines, elem_mid
 end
-
 
 subelement_mesh(::ElementGeometry) = throw("Not implemented")
 
@@ -140,7 +110,7 @@ function subelement_mesh(::Simplex{2}, n, T=Float64)
     x,el
 end
 
-function Plots.plot(m::HighOrderMesh{D,G,P,T}, u::Array{T}; nsub=nothing) where {D,G,P,T}
+function viz_solution(m::HighOrderMesh{D,G,P,T}, u::Array{T}; nsub=nothing) where {D,G,P,T}
     F = Float64
 
     if size(u,1) == size(m.x,1)
@@ -161,22 +131,16 @@ function Plots.plot(m::HighOrderMesh{D,G,P,T}, u::Array{T}; nsub=nothing) where 
     xdg = dg_nodes(m)
 
     allx,allu = Matrix{F}[], F[]
-    allel1 = Matrix{Int}[]
+    allel = Matrix{Int}[]
     for iel = 1:size(u,2)
         xy1 = F.(eval_fcn(m.fe, xdg[:,iel,:], x1))
         u1 = F.(eval_fcn(m.fe, u[:,iel], x1))
         push!(allx, xy1)
         append!(allu, u1[:,1])
-        push!(allel1, el1 .+ (iel-1)*size(x1,1))
+        push!(allel, el1 .+ (iel-1)*size(x1,1))
     end
-    allel1 = hcat(allel1...)
+    allel = hcat(allel...)
     allx = vcat(allx...)
 
-    if D == 1
-        return Plots.plot(allx[allel1], allu[allel1], color=:black, legend=false)
-    elseif D == 2
-        return TriplotRecipes.tripcolor(allx[:,1], allx[:,2], allu, allel1, color=:viridis, aspect_ratio=:equal)
-    else
-        throw("Dimension not implemented")
-    end
+    allx, allu, allel
 end

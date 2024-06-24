@@ -8,18 +8,14 @@ export eval_shapefcns, eval_fcn
 export HighOrderMesh, dg_nodes, elgeom, dim, porder, el2nbor, change_ref_nodes, change_degree
 export write_matrix, read_matrix!, savemesh, loadmesh, uniref, gmsh2msh, rungmsh2msh, vtkwrite
 export blockmesh_hypercube, mshhypercube, mshcube, mshsquare, mshline
-export plot
+export viz_mesh, viz_solution
 
 include("element_geometry.jl")
 include("finite_element.jl")
 include("high_order_mesh.jl")
 include("mesh_utils.jl")
 include("basic_meshes.jl")
-
-using Plots, TriplotRecipes
-
-include("plotting.jl")
-
+include("post_processing.jl")
 include("../examples/sample_meshes.jl")
 
 end
