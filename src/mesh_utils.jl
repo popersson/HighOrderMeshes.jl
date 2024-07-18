@@ -203,6 +203,23 @@ end
 
 mkldgswitch(m::HighOrderMesh) = mkldgswitch(elgeom(m), m.nbor)
 
+function boundary_nodes(m::HighOrderMesh, bndnbrs=(0))
+    f2n = mkface2nodes(m)
+    nf,nel = size(m.nbor)
+    
+    nodes = Int64[]
+    for iel in 1:nel
+        for j in 1:nf
+            jel,k = m.nbor[j,iel]
+            if -jel ∈ bndnbrs
+                append!(nodes, m.el[f2n[:,j],iel])
+            end
+        end
+    end
+    unique(nodes)
+end
+
+
 
 #######################################################################3
 ## gmsh import
