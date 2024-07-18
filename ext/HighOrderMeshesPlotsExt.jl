@@ -5,6 +5,15 @@ using Plots, TriplotRecipes
 
 const meshgreen = Plots.RGBX(0.8, 1, 0.8)
 
+"""
+    Plots.plot(m::HighOrderMesh{2,G,P,T};
+    labels=(), reltol=1e-3, abstol=Inf, maxref=6,
+    colors=(meshgreen, :black, :blue, :darkgray, :darkblue)
+    # colors: elements, int edges, bnd edges, ho-nodes, vertices
+) where {G,P,T}
+
+TBW
+"""
 function Plots.plot(m::HighOrderMesh{2,G,P,T};
     labels=(), reltol=1e-3, abstol=Inf, maxref=6,
     colors=(meshgreen, :black, :blue, :darkgray, :darkblue)
@@ -37,6 +46,11 @@ function Plots.plot(m::HighOrderMesh{2,G,P,T};
     return h
 end
 
+"""
+    Plots.plot(m::HighOrderMesh{D,G,P,T}, u::Array{T}; nsub=nothing) where {D,G,P,T}
+
+TBW
+"""
 function Plots.plot(m::HighOrderMesh{D,G,P,T}, u::Array{T}; nsub=nothing) where {D,G,P,T}
     allx, allu, allel = viz_solution(m, u, nsub=nsub)
     

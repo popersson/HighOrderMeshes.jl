@@ -1,3 +1,9 @@
+"""
+    viz_mesh(m::HighOrderMesh{2,G,P,T};
+                  reltol=1e-3, abstol=Inf, maxref=6) where {G,P,T}
+
+TBW
+"""
 function viz_mesh(m::HighOrderMesh{2,G,P,T};
                   reltol=1e-3, abstol=Inf, maxref=6) where {G,P,T}
     F = Float64
@@ -110,6 +116,11 @@ function subelement_mesh(::Simplex{2}, n, T=Float64)
     x,el
 end
 
+"""
+    viz_solution(m::HighOrderMesh{D,G,P,T}, u::Array{T}; nsub=nothing) where {D,G,P,T}
+
+TBW
+"""
 function viz_solution(m::HighOrderMesh{D,G,P,T}, u::Array{T}; nsub=nothing) where {D,G,P,T}
     F = Float64
 

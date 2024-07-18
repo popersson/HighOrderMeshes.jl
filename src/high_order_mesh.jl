@@ -5,6 +5,14 @@ struct HighOrderMesh{D,G,P,T}
     nbor::Matrix{NTuple{2,Int}}
 end
 
+"""
+    HighOrderMesh(fe::FiniteElement{D,G,P,T},
+              x::AbstractMatrix{T},
+              el::AbstractMatrix{Int}) where {D,G,P,T}
+    HighOrderMesh(x::Matrix{T}, el::AbstractMatrix{Int}) where {T}
+
+TBW
+"""
 function HighOrderMesh(fe::FiniteElement{D,G,P,T},
               x::AbstractMatrix{T},
               el::AbstractMatrix{Int}) where {D,G,P,T}
@@ -59,6 +67,11 @@ function el2nbor(el, eg)
     nb
 end
 
+"""
+    change_ref_nodes(m::HighOrderMesh{D,G,P,T}, newfe::FiniteElement) where {D,G,P,T}
+
+TBW
+"""
 function change_ref_nodes(m::HighOrderMesh{D,G,P,T}, newfe::FiniteElement) where {D,G,P,T}
     newp = porder(newfe)
     Pfe = eval_poly(G(), newfe.ref_nodes.vol, P)

@@ -1,11 +1,21 @@
 ###########################################################################
 ## Misc utils
 
+"""
+    matrix_tensor_product(A,B)
+
+TBW
+"""
 matrix_tensor_product(A,B) = reshape(A * reshape(B, size(A,2), :), size(A,1), size(B)[2:end]...)
 
 ###########################################################################
 ## Polynomials
 
+"""
+    legendre_poly_neg1pos1(x::AbstractVector{T}, p::Int; diff=false) where T
+
+TBW
+"""
 function legendre_poly_neg1pos1(x::AbstractVector{T}, p::Int; diff=false) where T
     # Legendre on [-1,1]
     y = ones(T, length(x), p+1)
@@ -23,6 +33,11 @@ function legendre_poly_neg1pos1(x::AbstractVector{T}, p::Int; diff=false) where 
     diff ? (y,dy) : y
 end
 
+"""
+    legendre_poly(x::AbstractVector{T}, p::Int; diff=false) where T
+
+TBW
+"""
 function legendre_poly(x::AbstractVector{T}, p::Int; diff=false) where T
     # Legendre on [0,1]
     ys = legendre_poly_neg1pos1(2x .- 1, p; diff=diff)
@@ -32,6 +47,11 @@ function legendre_poly(x::AbstractVector{T}, p::Int; diff=false) where T
     ys
 end
 
+"""
+    multivar_legendre_poly(x::AbstractArray{T}, p::Int; gradient=false) where T
+
+TBW
+"""
 function multivar_legendre_poly(x::AbstractArray{T}, p::Int; gradient=false) where T
     D = size(x,2)
     ix = [ i for i in Iterators.product(fill(1:p+1,D)...)][:]
@@ -63,6 +83,11 @@ function multivar_legendre_poly(x::AbstractArray{T}, p::Int; gradient=false) whe
     P
 end
 
+"""
+    multivar_monomial_poly(x::AbstractArray{T}, p::Int; gradient=false) where T
+
+TBW
+"""
 function multivar_monomial_poly(x::AbstractArray{T}, p::Int; gradient=false) where T
     ### TODO: Gradient
     isempty(x) && return [one(T);;]
@@ -73,6 +98,12 @@ function multivar_monomial_poly(x::AbstractArray{T}, p::Int; gradient=false) whe
     [ prod(xx .^ k) for xx in eachcol(x), k in powers ]
 end
 
+"""
+    eval_poly(eg::Simplex, s, p; gradient=false)
+    eval_poly(eg::Block, s, p; gradient=false)
+
+TBW
+"""
 eval_poly(eg::Simplex, s, p; gradient=false) = multivar_monomial_poly(s, p; gradient=gradient)
 eval_poly(eg::Block, s, p; gradient=false) = multivar_legendre_poly(s, p; gradient=gradient)
 
@@ -81,6 +112,12 @@ eval_poly(eg::Block, s, p; gradient=false) = multivar_legendre_poly(s, p; gradie
 
 equispaced(p::Int) = (0:p) // p
 
+"""
+    ref_nodes(::Block{D}, s1::AbstractVector{T}) where {D,T}
+    ref_nodes(eg::Simplex{D}, s1) where {D}
+
+TBW
+"""
 function ref_nodes(::Block{D}, s1::AbstractVector{T}) where {D,T}
     sD = zeros(T, 1, 0)
     for d = 1:D
@@ -109,6 +146,11 @@ end
 
 ndim2geomdim(D, ndim) = D == ndim ? :vol : D-1 == ndim ? :face : 1 == ndim : :line : throw("Geometry dimension not implemented")
 
+"""
+    eval_poly(::FiniteElement{D,G,P,T}, s; gradient=false) where {D,G,P,T}
+
+TBW
+"""
 eval_poly(::FiniteElement{D,G,P,T}, s; gradient=false) where {D,G,P,T} = eval_poly(G(), s, P; gradient=gradient)
 
 elgeom(::FiniteElement{D,G,P,T}) where {D,G,P,T} = G()
@@ -126,6 +168,12 @@ function Base.show(io::IO, fe::FiniteElement)
     print(io, "FiniteElement: $(dim(fe))D, $(name(fe)) element")
 end
 
+"""
+    FiniteElement(eg::ElementGeometry{D}, sline::AbstractVector{T}) where {D,T}
+    FiniteElement(eg::ElementGeometry, p::Int, T=Float64)
+
+TBW
+"""
 function FiniteElement(eg::ElementGeometry{D}, sline::AbstractVector{T}) where {D,T}
     p = length(sline) - 1
     sface = ref_nodes(facegeom(eg), sline)
@@ -144,6 +192,12 @@ FiniteElement(eg::ElementGeometry, p::Int, T=Float64) = FiniteElement(eg, T.(equ
 ###########################################################################
 ## Shape functions
 
+"""
+    eval_shapefcns(fe::FiniteElement{D,G,P,T}, ss::AbstractArray{T}; gradient=false) where {D,G,P,T}
+    eval_shapefcns(eg::ElementGeometry, ss::AbstractArray{T}; gradient=false) where {T}
+
+TBW
+"""
 function eval_shapefcns(fe::FiniteElement{D,G,P,T}, ss::AbstractArray{T}; gradient=false) where {D,G,P,T}
     pol = eval_poly(G(), ss, P; gradient=gradient)
     C = fe.shapefcn_coeff[:vol]
@@ -157,17 +211,30 @@ end
 eval_shapefcns(eg::ElementGeometry, ss::AbstractArray{T}; gradient=false) where {T} =
     eval_shapefcns(FiniteElement(eg, 1, T), ss; gradient=gradient)
 
+"""
+    eval_fcn(fe::FiniteElement{D,G,P,T}, u::Array{T}, ss::AbstractArray{T}; gradient=false) where {D,G,P,T}
+
+TBW
+"""
 function eval_fcn(fe::FiniteElement{D,G,P,T}, u::Array{T}, ss::AbstractArray{T}; gradient=false) where {D,G,P,T}
     nss,ndim = size(ss,1),size(ss,2)
     ns,nel = size(u,1),size(u,2)
     geomdim = ndim2geomdim(D, ndim)
     C = fe.shapefcn_coeff[geomdim]
 
-    matrix_output = eval_poly(fe, ss; gradient=gradient) * (C * reshape(u,ns,:))
-    if ndims(u) <= 2
-        return matrix_output
+    V = eval_poly(fe, ss; gradient=gradient)
+    if gradient
+        V = reshape(permutedims(V,(1,3,2)),:,ns)
+    end
+    matrix_output = V * (C * reshape(u,ns,:))
+    if gradient
+        return permutedims(reshape(matrix_output, nss, D, nel, size(u,3)), (1,3,4,2))
     else
-        return reshape(matrix_output, nss, nel, :)
+        if ndims(u) <= 2
+            return matrix_output
+        else
+            return reshape(matrix_output, nss, nel, :)
+        end
     end
 end
 

@@ -1,3 +1,8 @@
+"""
+    write_matrix(f, x)
+
+TBW
+"""
 function write_matrix(f, x)
     for i = 1:size(x,1)
         for j = 1:size(x,2)
@@ -10,6 +15,11 @@ function write_matrix(f, x)
     end
 end
 
+"""
+    read_matrix!(f, x)
+
+TBW
+"""
 function read_matrix!(f, x)
     for i = 1:size(x,1)
         line = readline(f)
@@ -17,6 +27,11 @@ function read_matrix!(f, x)
     end
 end
 
+"""
+    savemesh(fname, m::HighOrderMesh)
+
+TBW
+"""
 function savemesh(fname, m::HighOrderMesh)
     nx = size(m.x,1)
     nel = size(m.el,2)
@@ -28,6 +43,11 @@ function savemesh(fname, m::HighOrderMesh)
     close(f)
 end
 
+"""
+    loadmesh(fname)
+
+TBW
+"""
 function loadmesh(fname)
     f = open(fname, "r")
     line = split(readline(f), " ")
@@ -41,6 +61,12 @@ function loadmesh(fname)
     return HighOrderMesh(x,el')
 end
 
+"""
+    uniref(m::HighOrderMesh, nref)
+    uniref(m::HighOrderMesh{2,G,1,T}) where {G,T}
+
+TBW
+"""
 function uniref(m::HighOrderMesh, nref)
     m = deepcopy(m)
     for i = 1:nref
@@ -93,6 +119,12 @@ end
 snap(x::T) where {T <: Real} = x
 snap(x::T, tol=sqrt(eps(T))) where {T <: AbstractFloat} = tol*round(x/tol)
 
+"""
+    mkface2nodes(eg, sface::AbstractArray{T}, svol::AbstractArray{T}) where T
+    mkface2nodes(fe::FiniteElement)
+
+TBW
+"""
 function mkface2nodes(eg, sface::AbstractArray{T}, svol::AbstractArray{T}) where T
     fmap = facemap(eg)
     basis_face = snap.(eval_shapefcns(facegeom(eg), sface)')
@@ -109,6 +141,11 @@ end
 
 mkface2nodes(fe::FiniteElement) = mkface2nodes(elgeom(fe), fe.ref_nodes.face, fe.ref_nodes.vol)
 
+"""
+    unique_mesh_nodes(x, el)
+
+TBW
+"""
 function unique_mesh_nodes(x, el)
     xx = snap.(x)
     xxx = unique(eachrow(xx))
@@ -202,6 +239,11 @@ function parse_gmsh(fname)
 end
 
 ## Create Mesh from GMSH file ##
+"""
+    gmsh2msh(gmsh_fname)
+
+TBW
+"""
 function gmsh2msh(gmsh_fname)
   
     # GMsh element types
@@ -318,6 +360,11 @@ function gmsh2msh(gmsh_fname)
 end
 
 ## Run GMSH, convert to Mesh ##
+"""
+    rungmsh2msh(gmshfname; porder=1, cmdadd="")
+
+TBW
+"""
 function rungmsh2msh(gmshfname; porder=1, cmdadd="")
     fout = tempname() * ".msh"
     if isa(cmdadd, String)
@@ -383,6 +430,11 @@ vtk_celltype(::Block{3}) = 72
 vtk_celltype(::FiniteElement{D,G,P,T}) where {D,G,P,T} =
     vtk_celltype(G())
 
+"""
+    mk_vtk_data(fid, typename, uname, u)
+
+TBW
+"""
 function mk_vtk_data(fid, typename, uname, u)
     if typename == "VECTORS"
         println(fid, "$(typename) $(uname) float")
@@ -396,6 +448,11 @@ function mk_vtk_data(fid, typename, uname, u)
     write_matrix(fid, u)
 end
 
+"""
+    vtkwrite(fname, m::HighOrderMesh{D,G,P,T}, u::Array{T}=T[]) where {D,G,P,T}
+
+TBW
+"""
 function vtkwrite(fname, m::HighOrderMesh{D,G,P,T}, u::Array{T}=T[]) where {D,G,P,T}
      if size(u,1) == size(m.x,1)
         # Assume CG solution

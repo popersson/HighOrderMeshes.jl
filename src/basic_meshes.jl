@@ -1,3 +1,8 @@
+"""
+    blockmesh_hypercube(dims::NTuple{D,Int}, T=Float64) where D
+
+TBW
+"""
 function blockmesh_hypercube(dims::NTuple{D,Int}, T=Float64) where D
     x = zeros(T, 1, 0)
     for d in dims
@@ -18,6 +23,11 @@ function blockmesh_hypercube(dims::NTuple{D,Int}, T=Float64) where D
     x,el
 end
 
+"""
+    mshhypercube(dims::NTuple{D,Int}, T=Float64) where D
+
+TBW
+"""
 mshhypercube(dims::NTuple{D,Int}, T=Float64) where D =
     HighOrderMesh(blockmesh_hypercube(dims,T)...)
 
