@@ -74,11 +74,11 @@ TBW
 """
 function change_ref_nodes(m::HighOrderMesh{D,G,P,T}, newfe::FiniteElement) where {D,G,P,T}
     newp = porder(newfe)
-    Pfe = eval_poly(G(), newfe.ref_nodes.vol, P)
+    Pfe = eval_poly(G(), newfe.ref_nodes[D], P)
     newns = nbr_ho_nodes(newfe)
     nv,nel = size(m.el)
     xdg = dg_nodes(m)
-    newxdg = reshape(Pfe * (m.fe.shapefcn_coeff.vol * reshape(xdg, nv, D*nel)), newns*nel, D)
+    newxdg = reshape(Pfe * (m.fe.shapefcn_coeff[D] * reshape(xdg, nv, D*nel)), newns*nel, D)
     neweldg = reshape(1:newns*nel, newns, nel)
     newx,newel = unique_mesh_nodes(newxdg, neweldg)
     HighOrderMesh{D,G,newp,T}(newfe, newx, newel, m.nbor)

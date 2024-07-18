@@ -125,9 +125,9 @@ snap(x::T, tol=sqrt(eps(T))) where {T <: AbstractFloat} = tol*round(x/tol)
 
 TBW
 """
-function mkface2nodes(eg, sface::AbstractArray{T}, svol::AbstractArray{T}) where T
+function mkface2nodes(eg::ElementGeometry{D}, sface::AbstractArray{T}, svol::AbstractArray{T}) where {D,T}
     fmap = facemap(eg)
-    basis_face = snap.(eval_shapefcns(facegeom(eg), sface)')
+    basis_face = snap.(eval_shapefcns(subgeom(eg,D-1), sface)')
     basis_vol = snap.(eval_shapefcns(eg, svol)')
     basis_face = reinterpret(reshape, NTuple{size(basis_face,1),T}, basis_face)
     f2n = fill(0, length(basis_face), size(fmap,2))
@@ -138,8 +138,6 @@ function mkface2nodes(eg, sface::AbstractArray{T}, svol::AbstractArray{T}) where
     end
     f2n
 end
-
-mkface2nodes(fe::FiniteElement) = mkface2nodes(elgeom(fe), fe.ref_nodes.face, fe.ref_nodes.vol)
 
 """
     unique_mesh_nodes(x, el)
@@ -157,7 +155,54 @@ function unique_mesh_nodes(x, el)
 end 
 
 mkface2nodes(fe::FiniteElement{D,G,P,T}) where {D,G,P,T} =
-    mkface2nodes(G(), fe.ref_nodes.face, fe.ref_nodes.vol)
+    mkface2nodes(G(), fe.ref_nodes[D-1], fe.ref_nodes[D])
+
+mkface2nodes(m::HighOrderMesh) = mkface2nodes(m.fe)
+
+function mkldgswitch(eg::Block{D}, nbor) where {D}
+    nf,nel = size(nbor)
+    sw = fill(-1, nf, nel)
+
+    opposite_face(i) = i - iseven(i) + isodd(i)
+
+    while true
+        idx = findfirst(isequal(-1), sw)
+        isnothing(idx) && break
+        j,iel = Tuple(idx)
+
+        iel0 = iel
+        j0 = j
+        dir = 1
+        while true
+            sw[j,iel] = dir
+            jel,k = nbor[j,iel]
+            if jel > 0
+                sw[k,jel] = 1 - dir
+                iel = jel
+                j = opposite_face(k)
+                if sw[j,iel] != -1
+                    if dir == 1
+                        dir = 0
+                        iel = iel0
+                        j = opposite_face(j0)
+                    else
+                        break
+                    end
+                end
+            elseif dir == 1
+                dir = 0
+                iel = iel0
+                j = opposite_face(j0)
+            else
+                break
+            end
+        end
+    end
+    return sw
+end
+
+mkldgswitch(m::HighOrderMesh) = mkldgswitch(elgeom(m), m.nbor)
+
 
 #######################################################################3
 ## gmsh import
