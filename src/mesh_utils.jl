@@ -117,7 +117,7 @@ function uniref(m::HighOrderMesh{2,G,1,T}) where {G,T}
 end
 
 snap(x::T) where {T <: Real} = x
-snap(x::T, tol=sqrt(eps(T))) where {T <: AbstractFloat} = tol*round(x/tol)
+snap(x::T, tol=sqrt(eps(T))) where {T <: AbstractFloat} = tol*round(x/tol) + zero(T)  # Adding zero to uniquify -0.0 and 0.0
 
 """
     mkface2nodes(eg, sface::AbstractArray{T}, svol::AbstractArray{T}) where T
@@ -217,6 +217,43 @@ function boundary_nodes(m::HighOrderMesh, bndnbrs=(0))
         end
     end
     unique(nodes)
+end
+
+function align_with_ldgswitch!(m::HighOrderMesh{2,Block{2},P}) where P
+    sw = mkldgswitch(m)
+
+    switch_cases = [ [1,0,1,0],
+                     [1,0,0,1],
+                     [0,1,0,1],
+                     [0,1,1,0] ]
+
+    mapcase = [ findfirst([csw] .== switch_cases) for csw in eachcol(sw) ]
+
+    nds = collect(reshape(1:(P+1)^2, P+1, P+1))
+    ndmaps = [nds]
+    for i = 2:4
+        push!(ndmaps, rotl90(ndmaps[end]))
+    end
+    ndmaps = reshape.(ndmaps, :)
+    
+    fcmaps = [ [1,2,3,4],
+               [4,3,1,2],
+               [2,1,4,3],
+               [3,4,2,1] ]
+    ifcmaps = [ invperm(fc) for fc in fcmaps ]
+    
+    for iel = 1:size(m.el,2)
+        cmap = mapcase[iel]
+        m.el[:,iel] .= m.el[:,iel][ndmaps[cmap]]
+        cnbor = m.nbor[:,iel]
+        for j = 1:4
+            if cnbor[j][2] > 0
+                jel = cnbor[j][1]
+                cnbor[j] = (jel, ifcmaps[mapcase[jel]][cnbor[j][2]] )
+            end
+        end
+        m.nbor[:,iel] = cnbor[fcmaps[cmap]]
+    end
 end
 
 
