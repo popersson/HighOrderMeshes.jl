@@ -2,8 +2,8 @@
 ## FiniteElement
 
 struct FiniteElement{D,G<:ElementGeometry{D},P,T}
-    ref_nodes::NTuple{D, AbstractArray{T}}
-    shapefcn_coeff::NTuple{D, AbstractArray{T}}
+    ref_nodes::NTuple{D, Matrix{T}}
+    shapefcn_coeff::NTuple{D, Matrix{T}}
 end
 
 """
