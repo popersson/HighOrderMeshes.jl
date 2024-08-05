@@ -219,8 +219,10 @@ function boundary_nodes(m::HighOrderMesh, bndnbrs=(0))
     unique(nodes)
 end
 
-function align_with_ldgswitch!(m::HighOrderMesh{2,Block{2},P}) where P
-    sw = mkldgswitch(m)
+function align_with_ldgswitch!(m::HighOrderMesh{2,Block{2},P}, sw=nothing) where P
+    if isnothing(sw)
+        sw = mkldgswitch(m)
+    end
 
     switch_cases = [ [1,0,1,0],
                      [1,0,0,1],
