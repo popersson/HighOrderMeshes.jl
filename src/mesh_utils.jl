@@ -147,10 +147,10 @@ TBW
 function unique_mesh_nodes(x, el)
     xx = snap.(x)
     xxx = unique(eachrow(xx))
-    ix = indexin(xxx, eachrow(xx))
-    jx = indexin(eachrow(xx), xxx)
+    ix = Int.(indexin(xxx, eachrow(xx)))
+    jx = Int.(indexin(eachrow(xx), xxx))
     x = x[ix,:]
-    el = reshape(jx, size(el))
+    el = jx[el]
     x,el
 end 
 
