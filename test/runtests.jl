@@ -11,4 +11,14 @@ using Test
         @test size(m.el) == (4,15)
         @test eltype(m.x) == eltpe
     end
+
+    rootdir = pkgdir(HighOrderMeshes)
+    for (filename,eg) in (("circle_tris.msh", Simplex{2}()),
+                          ("square_tris.msh", Simplex{2}()),
+                          ("circle_quads.msh", Block{2}()),
+                          ("square_quads.msh", Block{2}()))
+        fullname = joinpath(rootdir, "examples/gmsh", filename)
+        m = gmsh2msh(fullname)
+        @test elgeom(m) == eg
+    end
 end
