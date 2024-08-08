@@ -444,19 +444,35 @@ function gmsh2msh(gmsh_fname)
     t1 = node_numbers[:, gmsh_element_types.==gmsh_eltype_vol[1]]
     el = t1[gmsh_node_order_map(elgeom)[porder],:]
 
-    #elmap = zeros(Int, size(xcg,2))
-    #xkeep = unique(el)
-    #elmap[xkeep] = 1:length(xkeep)
-    #el = elmap[el]
-    #x = xcg[:,xkeep]
-
     m = HighOrderMesh(FiniteElement(elgeom,porder), xcg', el)
 
-    #m = Mesh(x,el)
-    #m = change_degree(m, porder)
-    #t1 = t1[gmsh_node_order_map(elgeom)[porder], :]
-    #m.xp[:,:,:] .= permutedims(xcg[:,t1], [2,1,3])
 
+    ### Boundary tags
+    tagcol = any(first.(element_tags) .== 0) ? 2 : 1
+    surf_elgeom = gmshtype2elgeom[gmsh_eltype_surf[1]]
+    surf_porder = gmshtype2porder[gmsh_eltype_surf[1]]
+    if !isempty(surf_porder)
+        length(surf_porder) > 1 && throw("Must have unique order surface elements")
+        porder != surf_porder && throw("Must have same porder for volume and surface elements")
+
+        surf_loc = findall(gmsh[:Elements][:type] .== gmsh_eltype_surf[1])
+        nbr_surf_nodes = length(gmsh_node_order_map(surf_elgeom)[porder])
+        surf_nodes = node_numbers[1:nbr_surf_nodes,surf_loc]
+        sort!(surf_nodes, dims=1)
+
+        f2n = mkface2nodes(m)
+        nf,nel = size(m.nbor)
+        m_surf_nodes = [ m.el[f2n[:,j],iel] for j = 1:nf, iel = 1:nel if m.nbor[j,iel] == (0,0) ]
+        m_surf_index = [ (j,iel) for j = 1:nf, iel = 1:nel if m.nbor[j,iel] == (0,0) ]
+        sort!.(m_surf_nodes)
+
+        surf_map = indexin(m_surf_nodes, eachcol(surf_nodes))
+        for i in eachindex(surf_map)
+            m.nbor[m_surf_index[i]...] = (-element_tags[surf_loc[surf_map[i]]][tagcol],0)
+        end
+    end
+    
+    
     return m
 end
 
