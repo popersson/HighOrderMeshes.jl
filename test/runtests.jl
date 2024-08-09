@@ -7,7 +7,7 @@ using Test
     end
 
     for eltpe in (Float64, Float32, Rational{Int})
-        m = mshsquare(5, 3, eltpe)
+        m = mshsquare(5, 3; T=eltpe)
         @test size(m.el) == (4,15)
         @test eltype(m.x) == eltpe
     end
