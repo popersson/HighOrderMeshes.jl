@@ -19,7 +19,7 @@ eval_poly(::FiniteElement{D,G,P,T}, s; gradient=false) where {D,G,P,T} = eval_po
 elgeom(::FiniteElement{D,G,P,T}) where {D,G,P,T} = G()
 dim(::FiniteElement{D,G,P,T}) where {D,G,P,T} = D
 porder(::FiniteElement{D,G,P,T}) where {D,G,P,T} = P
-nbr_ho_nodes(fe::FiniteElement{D}) where {D} = D == 0 ? 1 : size(ref_nodes(fe,D),1)
+nbr_ho_nodes(fe::FiniteElement{D}, dims=D) where {D} = size(ref_nodes(fe,dims),1)
 function corner_nodes(fe::FiniteElement{D,G,P,T}) where {D,G,P,T}
     fe1 = FiniteElement(G(), 1)
     indexin(eachrow(ref_nodes(fe1,D)), eachrow(ref_nodes(fe,D)))
@@ -56,14 +56,13 @@ FiniteElement(eg::ElementGeometry, p::Int, T=Float64) = FiniteElement(eg, T.(equ
     Evaluate shape functions at reference coordinates ss
 
     Dimensions:
-      ss: nss x D
+      ss: nss x ndim
       output, gradient=false: nss x ns
-      output, gradient=true:  nss x ns x D
+      output, gradient=true:  nss x ns x ndim
 """
 function eval_shapefcns(fe::FiniteElement{D,G,P,T}, ss::AbstractArray{T}; gradient=false) where {D,G,P,T}
-
-    D == 0 && return ones(T,size(ss,1))
     nss,ndim = size(ss,1),size(ss,2)
+    ndim == 0 && return ones(T,size(ss,1))
     pol = eval_poly(G(), ss, P; gradient=gradient)
     C = fe.shapefcn_coeff[ndim]
     if gradient
@@ -83,18 +82,17 @@ eval_shapefcns(eg::ElementGeometry, ss::AbstractArray{T}; gradient=false) where 
 
     Dimensions:
       u: ns x nel x nc  or  ns x nel
-      ss: nss x D
+      ss: nss x ndim
       output, gradient=false: nss x nel x nc  (3rd dim dropped if u is ns x nel)
-      output, gradient=true:  nss x nel x nc x D
+      output, gradient=true:  nss x nel x nc x ndim
 """
 function eval_fcn(fe::FiniteElement{D,G,P,T}, u::Array{T}, ss::AbstractArray{T}; gradient=false) where {D,G,P,T}
    
     nss,ndim = size(ss,1),size(ss,2)
-    @assert ndim == D
     ns,nel = size(u,1),size(u,2)
-    @assert ns == nbr_ho_nodes(fe)
+    @assert ns == nbr_ho_nodes(fe, ndim)
 
-    D == 0 && return gradient ? zeros(T,nss,nel,nc,0) : repeat(u[[1],:,:],nss)
+    ndim == 0 && return gradient ? zeros(T,nss,nel,nc,0) : repeat(u[[1],:,:],nss)
     
     C = fe.shapefcn_coeff[ndim]
 
