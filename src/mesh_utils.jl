@@ -202,7 +202,7 @@ end
 
 mkldgswitch(m::HighOrderMesh) = mkldgswitch(elgeom(m), m.nbor)
 
-function boundary_nodes(m::HighOrderMesh, bndnbrs=(0))
+function boundary_nodes(m::HighOrderMesh, bndnbrs=nothing)
     f2n = mkface2nodes(m)
     nf,nel = size(m.nbor)
     
@@ -210,7 +210,7 @@ function boundary_nodes(m::HighOrderMesh, bndnbrs=(0))
     for iel in 1:nel
         for j in 1:nf
             jel,k = m.nbor[j,iel]
-            if -jel ∈ bndnbrs
+            if jel < 1 && (isnothing(bndnbrs) || -jel ∈ bndnbrs)
                 append!(nodes, m.el[f2n[:,j],iel])
             end
         end
@@ -266,13 +266,9 @@ function set_bnd_numbers!(m::HighOrderMesh, bndexpr)
         if m.nbor[j,iel][1] < 1
             facex = m.x[m.el[f2n[:,j],iel],:]
             onbnd = hcat([ snap.(bndexpr(cx)) .== 0 for cx in eachrow(facex) ]...)
-            bndnbr = findall(all(onbnd,dims=2)[:])
-            if length(bndnbr) == 0
-                throw("No boundary expression matching boundary face")
-            elseif length(bndnbr) > 1
-                throw("Multiple boundary expressions matching boundary face")
-            end
-            m.nbor[j,iel] = (-bndnbr[1],0)
+            bndnbr = findfirst(all(onbnd,dims=2)[:])
+            isnothing(bndnbr) && throw("No boundary expression matching boundary face")
+            m.nbor[j,iel] = (-bndnbr,0)
         end
     end
 

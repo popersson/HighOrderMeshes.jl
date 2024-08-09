@@ -3,7 +3,7 @@
 
 TBW
 """
-function blockmesh_hypercube(dims::NTuple{D,Int}, T=Float64) where D
+function blockmesh_hypercube(dims::NTuple{D,Int}; T=Float64) where D
     x = zeros(T, 1, 0)
     for d in dims
         xx = (0:d) / T(d)
@@ -28,30 +28,30 @@ end
 
 TBW
 """
-function mshhypercube(dims::NTuple{D,Int}, T=Float64) where D
-    bndexpr(p) = [p'; 1 .- p'][:]
-    HighOrderMesh(blockmesh_hypercube(dims,T)..., bndexpr=bndexpr)
+function mshhypercube(dims::NTuple{D,Int}; p=1, T=Float64) where D
+    bndexpr(x) = [x'; 1 .- x'][:]
+    change_degree(HighOrderMesh(blockmesh_hypercube(dims; T=T)..., bndexpr=bndexpr), p)
 end
 
-mshcube(m=5, n=m, o=n, T=Float64) = mshhypercube((m,n,o), T)
-mshsquare(m=5, n=m, T=Float64) = mshhypercube((m,n), T)
-mshline(m=5, T=Float64) = mshhypercube((m,), T)
+mshcube(m=5, n=m, o=n; kwargs...) = mshhypercube((m,n,o); kwargs...)
+mshsquare(m=5, n=m; kwargs...) = mshhypercube((m,n); kwargs...)
+mshline(m=5; kwargs...) = mshhypercube((m,); kwargs...)
 
-function mshcircle(n=1, porder=1; circle_type=:full)
-    n1 = n * porder
+function mshcircle(n=1; p=1, shape=:full)
+    n1 = n * p
     s = (0:n1) ./ n1
     e = ones(n1+1)
     z = zeros(n1+1)
     a = (2 + π/8) / (4 + √2) # All coarsest quads same average (curved) side length
 
     ix = reshape(1:(n1+1)^2, n1+1, n1+1)
-    q0 = fill(0, porder+1, porder+1, n, n)
+    q0 = fill(0, p+1, p+1, n, n)
     for j = 1:n, i = 1:n
-        ix0 = 0:porder
-        i0,j0 = (i-1)*porder + 1, (j-1)*porder + 1
+        ix0 = 0:p
+        i0,j0 = (i-1)*p + 1, (j-1)*p + 1
         q0[:,:,i,j] .= ix[i0 .+ ix0, j0 .+ ix0]
     end
-    q0 = reshape(q0, (porder+1)^2, n^2)
+    q0 = reshape(q0, (p+1)^2, n^2)
 
     # Boundaries of block
     phi = π/4 * (0:n1)/n1
@@ -84,33 +84,33 @@ function mshcircle(n=1, porder=1; circle_type=:full)
     p0 = [xx[:] yy[:]]
 
     # All three quads
-    p = [p1; p2; p0]
+    pp = [p1; p2; p0]
     el = [q0 q0 .+ (n1+1)^2 q0 .+ 2(n1+1)^2]
-    p,el = unique_mesh_nodes(p,el)
+    pp,el = unique_mesh_nodes(pp,el)
 
-    fe = FiniteElement(Block{2}(), porder)
-    if circle_type == :quarter
-        return HighOrderMesh(fe, p, el, bndexpr=p->[p[2],p[1],0])
+    fe = FiniteElement(Block{2}(), p)
+    if shape == :quarter
+        return HighOrderMesh(fe, pp, el, bndexpr=x->[x[2],x[1],0])
     else
         # Rotate 90 degrees
-        p1 = p
-        p2 = [-p[:,2] p[:,1]]
+        p1 = pp
+        p2 = [-pp[:,2] pp[:,1]]
         el = hcat(el, el .+ size(p1,1))
-        p = vcat(p1,p2)
-        p,el = unique_mesh_nodes(p,el)
-        if circle_type == :half
-            return HighOrderMesh(fe, p, el, bndexpr=p->[p[2],0])
+        pp = vcat(p1,p2)
+        pp,el = unique_mesh_nodes(pp,el)
+        if shape == :half
+            return HighOrderMesh(fe, pp, el, bndexpr=x->[x[2],0])
         else
             # Rotate 180 degrees
-            p1 = p
-            p2 = [-p[:,1] -p[:,2]]
+            p1 = pp
+            p2 = [-pp[:,1] -pp[:,2]]
             el = hcat(el, el .+ size(p1,1))
-            p = vcat(p1,p2)
-            p,el = unique_mesh_nodes(p,el)
-            if circle_type == :full
-                return HighOrderMesh(fe, p, el, bndexpr=p->[0])
+            pp = vcat(p1,p2)
+            pp,el = unique_mesh_nodes(pp,el)
+            if shape == :full
+                return HighOrderMesh(fe, pp, el, bndexpr=p->[0])
             else
-                throw("circle_type must be :quarter, :half, or :full")
+                throw("`shape` must be :quarter, :half, or :full")
             end
         end
     end

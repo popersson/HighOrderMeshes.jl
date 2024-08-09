@@ -19,9 +19,7 @@ function HighOrderMesh(fe::FiniteElement{D,G,P,T},
                        bndexpr=p->[0]) where {D,G,P,T}
     nbor = el2nbor(el[corner_nodes(fe),:], G())
     m = HighOrderMesh{D,G,P,T}(fe, x, el, nbor)
-    if !isnothing(bndexpr)
-        set_bnd_numbers!(m, bndexpr)
-    end
+    set_bnd_numbers!(m, bndexpr)
     m
 end
 
