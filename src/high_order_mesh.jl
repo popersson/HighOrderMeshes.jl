@@ -14,18 +14,23 @@ end
 TBW
 """
 function HighOrderMesh(fe::FiniteElement{D,G,P,T},
-              x::AbstractMatrix{T},
-              el::AbstractMatrix{Int}) where {D,G,P,T}
+                       x::AbstractMatrix{T},
+                       el::AbstractMatrix{Int};
+                       bndexpr=p->[0]) where {D,G,P,T}
     nbor = el2nbor(el[corner_nodes(fe),:], G())
-    HighOrderMesh{D,G,P,T}(fe, x, el, nbor)
+    m = HighOrderMesh{D,G,P,T}(fe, x, el, nbor)
+    if !isnothing(bndexpr)
+        set_bnd_numbers!(m, bndexpr)
+    end
+    m
 end
 
-function HighOrderMesh(x::Matrix{T}, el::AbstractMatrix{Int}) where {T}
+function HighOrderMesh(x::Matrix{T}, el::AbstractMatrix{Int}; kwargs...) where {T}
     dim, nv = size(x,2), size(el,1)
     eg = find_elgeom(dim, nv)
     nbor = el2nbor(el, eg)
     fe = FiniteElement(eg, 1, T)
-    HighOrderMesh{dim,typeof(eg),1,T}(fe, x, el, nbor)
+    HighOrderMesh(fe, x, el; kwargs...)
 end
 
 dg_nodes(m::HighOrderMesh) = m.x[m.el,:]
@@ -74,7 +79,7 @@ TBW
 """
 function change_ref_nodes(m::HighOrderMesh{D,G,P,T}, newfe::FiniteElement) where {D,G,P,T}
     newp = porder(newfe)
-    Pfe = eval_poly(G(), newfe.ref_nodes[D], P)
+    Pfe = eval_poly(G(), ref_nodes(newfe,D), P)
     newns = nbr_ho_nodes(newfe)
     nv,nel = size(m.el)
     xdg = dg_nodes(m)

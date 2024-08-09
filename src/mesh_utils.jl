@@ -116,8 +116,9 @@ function uniref(m::HighOrderMesh{2,G,1,T}) where {G,T}
     return HighOrderMesh(newx,newel)
 end
 
-snap(x::T) where {T <: Real} = x
-snap(x::T, tol=sqrt(eps(T))) where {T <: AbstractFloat} = tol*round(x/tol) + zero(T)  # Adding zero to uniquify -0.0 and 0.0
+snap(x::T, scaling=1) where {T <: Real} = x
+snap(x::T, scaling=1, tol=sqrt(eps(T))) where {T <: AbstractFloat} =
+    scaling*tol*round(x/scaling/tol) + zero(T)  # Adding zero to uniquify -0.0 and 0.0
 
 """
     mkface2nodes(eg, sface::AbstractArray{T}, svol::AbstractArray{T}) where T
@@ -127,13 +128,11 @@ TBW
 """
 function mkface2nodes(eg::ElementGeometry{D}, sface::AbstractArray{T}, svol::AbstractArray{T}) where {D,T}
     fmap = facemap(eg)
-    basis_face = snap.(eval_shapefcns(subgeom(eg,D-1), sface)')
-    basis_vol = snap.(eval_shapefcns(eg, svol)')
-    basis_face = reinterpret(reshape, NTuple{size(basis_face,1),T}, basis_face)
-    f2n = fill(0, length(basis_face), size(fmap,2))
+    basis_face = snap.(eval_shapefcns(subgeom(eg,D-1), sface))
+    basis_vol = snap.(eval_shapefcns(eg, svol))
+    f2n = fill(0, size(basis_face,1), size(fmap,2))
     for (ii,ic) in enumerate(eachcol(fmap))
-        basis_volic = reinterpret(reshape, NTuple{length(ic),T}, basis_vol[ic,:])
-        ix = indexin(basis_face, basis_volic)
+        ix = indexin(eachrow(basis_face), eachrow(basis_vol[:,ic]))
         f2n[:,ii] .= ix
     end
     f2n
@@ -145,7 +144,7 @@ end
 TBW
 """
 function unique_mesh_nodes(x, el)
-    xx = snap.(x)
+    xx = snap.(x, maximum(abs.(x)))
     xxx = unique(eachrow(xx))
     ix = Int.(indexin(xxx, eachrow(xx)))
     jx = Int.(indexin(eachrow(xx), xxx))
@@ -155,7 +154,7 @@ function unique_mesh_nodes(x, el)
 end 
 
 mkface2nodes(fe::FiniteElement{D,G,P,T}) where {D,G,P,T} =
-    mkface2nodes(G(), fe.ref_nodes[D-1], fe.ref_nodes[D])
+    mkface2nodes(G(), ref_nodes(fe, D-1), ref_nodes(fe, D))
 
 mkface2nodes(m::HighOrderMesh) = mkface2nodes(m.fe)
 
@@ -257,6 +256,28 @@ function align_with_ldgswitch!(m::HighOrderMesh{2,Block{2},P}, sw=nothing) where
         m.nbor[:,iel] = cnbor[fcmaps[cmap]]
     end
 end
+
+function set_bnd_numbers!(m::HighOrderMesh, bndexpr)
+    nf,nel = size(m.nbor)
+    f2n = mkface2nodes(m)
+
+    scaling = maximum(abs.(m.x))
+    for iel in axes(m.nbor,2), j in axes(m.nbor,1)
+        if m.nbor[j,iel][1] < 1
+            facex = m.x[m.el[f2n[:,j],iel],:]
+            onbnd = hcat([ snap.(bndexpr(cx)) .== 0 for cx in eachrow(facex) ]...)
+            bndnbr = findall(all(onbnd,dims=2)[:])
+            if length(bndnbr) == 0
+                throw("No boundary expression matching boundary face")
+            elseif length(bndnbr) > 1
+                throw("Multiple boundary expressions matching boundary face")
+            end
+            m.nbor[j,iel] = (-bndnbr[1],0)
+        end
+    end
+
+end
+
 
 
 

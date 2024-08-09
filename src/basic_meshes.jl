@@ -28,13 +28,14 @@ end
 
 TBW
 """
-mshhypercube(dims::NTuple{D,Int}, T=Float64) where D =
-    HighOrderMesh(blockmesh_hypercube(dims,T)...)
+function mshhypercube(dims::NTuple{D,Int}, T=Float64) where D
+    bndexpr(p) = [p'; 1 .- p'][:]
+    HighOrderMesh(blockmesh_hypercube(dims,T)..., bndexpr=bndexpr)
+end
 
 mshcube(m=5, n=m, o=n, T=Float64) = mshhypercube((m,n,o), T)
 mshsquare(m=5, n=m, T=Float64) = mshhypercube((m,n), T)
 mshline(m=5, T=Float64) = mshhypercube((m,), T)
-
 
 function mshcircle(n=1, porder=1; circle_type=:full)
     n1 = n * porder
@@ -89,7 +90,7 @@ function mshcircle(n=1, porder=1; circle_type=:full)
 
     fe = FiniteElement(Block{2}(), porder)
     if circle_type == :quarter
-        return HighOrderMesh(fe, p, el)
+        return HighOrderMesh(fe, p, el, bndexpr=p->[p[2],p[1],0])
     else
         # Rotate 90 degrees
         p1 = p
@@ -98,7 +99,7 @@ function mshcircle(n=1, porder=1; circle_type=:full)
         p = vcat(p1,p2)
         p,el = unique_mesh_nodes(p,el)
         if circle_type == :half
-            return HighOrderMesh(fe, p, el)
+            return HighOrderMesh(fe, p, el, bndexpr=p->[p[2],0])
         else
             # Rotate 180 degrees
             p1 = p
@@ -107,7 +108,7 @@ function mshcircle(n=1, porder=1; circle_type=:full)
             p = vcat(p1,p2)
             p,el = unique_mesh_nodes(p,el)
             if circle_type == :full
-                return HighOrderMesh(fe, p, el)
+                return HighOrderMesh(fe, p, el, bndexpr=p->[0])
             else
                 throw("circle_type must be :quarter, :half, or :full")
             end
