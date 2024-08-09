@@ -62,7 +62,7 @@ FiniteElement(eg::ElementGeometry, p::Int, T=Float64) = FiniteElement(eg, T.(equ
 """
 function eval_shapefcns(fe::FiniteElement{D,G,P,T}, ss::AbstractArray{T}; gradient=false) where {D,G,P,T}
     nss,ndim = size(ss,1),size(ss,2)
-    ndim == 0 && return ones(T,size(ss,1))
+    ndim == 0 && return gradient ? ones(T,size(ss,1),1,0) : ones(T,size(ss,1),1)
     pol = eval_poly(G(), ss, P; gradient=gradient)
     C = fe.shapefcn_coeff[ndim]
     if gradient
