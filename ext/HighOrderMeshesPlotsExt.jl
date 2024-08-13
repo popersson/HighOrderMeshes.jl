@@ -50,13 +50,20 @@ end
 
 TBW
 """
-function Plots.plot(m::HighOrderMesh{D,G,P,T}, u::Array{T}; nsub=nothing, mesh_edges=false) where {D,G,P,T}
+function Plots.plot(m::HighOrderMesh{D,G,P,T}, u::Array{T}; nsub=nothing, mesh_edges=false, contours=0) where {D,G,P,T}
     allx, allu, allel = viz_solution(m, u, nsub=nsub)
     
     if D == 1
         return Plots.plot(allx[allel], allu[allel], color=:black, legend=false)
     elseif D == 2
         h = TriplotRecipes.tripcolor(allx[:,1], allx[:,2], allu, allel, color=:viridis, aspect_ratio=:equal)
+        if contours != 0
+            if mesh_function_type(m,u) != :cg
+                throw("Contours only supported for CG functions")
+            end
+            h = TriplotRecipes.tricontour!(allx[:,1], allx[:,2], allu, allel,
+                                           contours, colorbar_entry=false)
+        end
         if mesh_edges
             _, int_lines, bnd_lines, _ =viz_mesh(m)
             all_lines = vcat(int_lines, bnd_lines)

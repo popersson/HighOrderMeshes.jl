@@ -143,14 +143,14 @@ end
 
 TBW
 """
-function unique_mesh_nodes(x, el)
+function unique_mesh_nodes(x, el; output_ix=false)
     xx = snap.(x, maximum(abs.(x)))
     xxx = unique(eachrow(xx))
     ix = Int.(indexin(xxx, eachrow(xx)))
     jx = Int.(indexin(eachrow(xx), xxx))
     x = x[ix,:]
     el = jx[el]
-    x,el
+    return output_ix ? (x,el,ix) : (x,el)
 end 
 
 mkface2nodes(fe::FiniteElement{D,G,P,T}) where {D,G,P,T} =

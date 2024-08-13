@@ -116,6 +116,16 @@ function subelement_mesh(::Simplex{2}, n, T=Float64)
     x,el
 end
 
+function mesh_function_type(m::HighOrderMesh, u::Array)
+    if size(u,1) == size(m.x,1)
+        return :cg
+    elseif size(u,1) == size(m.el,1)
+        return :dg
+    else
+        throw("Solution field does not match CG or DG type for the mesh")
+    end
+end
+
 """
     viz_solution(m::HighOrderMesh{D,G,P,T}, u::Array{T}; nsub=nothing) where {D,G,P,T}
 
@@ -124,12 +134,9 @@ TBW
 function viz_solution(m::HighOrderMesh{D,G,P,T}, u::Array{T}; nsub=nothing) where {D,G,P,T}
     F = Float64
 
-    if size(u,1) == size(m.x,1)
-        # Assume CG solution
-        u = u[m.el,:]
-    elseif size(u,1) == size(m.el,1)
-        # Assume DG solution
-    end
+    is_cg = mesh_function_type(m,u) == :cg
+    is_cg && (u = u[m.el,:])
+    
     if ndims(u) > 2
         u = u[:,:,1]
     end
@@ -153,5 +160,10 @@ function viz_solution(m::HighOrderMesh{D,G,P,T}, u::Array{T}; nsub=nothing) wher
     allel = hcat(allel...)
     allx = vcat(allx...)
 
+    if is_cg
+        allx,allel,ix = unique_mesh_nodes(allx,allel,output_ix=true)
+        allu = allu[ix]
+    end
+    
     allx, allu, allel
 end
