@@ -479,8 +479,8 @@ function gmsh2msh(gmsh_fname)
 
         f2n = mkface2nodes(m)
         nf,nel = size(m.nbor)
-        m_surf_nodes = [ m.el[f2n[:,j],iel] for j = 1:nf, iel = 1:nel if m.nbor[j,iel] == (0,0) ]
-        m_surf_index = [ (j,iel) for j = 1:nf, iel = 1:nel if m.nbor[j,iel] == (0,0) ]
+        m_surf_nodes = [ m.el[f2n[:,j],iel] for j = 1:nf, iel = 1:nel if m.nbor[j,iel][1] < 1 ]
+        m_surf_index = [ (j,iel) for j = 1:nf, iel = 1:nel if m.nbor[j,iel][1] < 1 ]
         sort!.(m_surf_nodes)
 
         surf_map = indexin(m_surf_nodes, eachcol(surf_nodes))
