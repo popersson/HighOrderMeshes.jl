@@ -573,7 +573,7 @@ function mk_vtk_data(fid, typename, uname, u)
     if typename == "VECTORS"
         println(fid, "$(typename) $(uname) float")
         if size(u,2) == 2
-            u = vcat(u, 0*u[:,1])
+            u = hcat(u, 0*u[:,1])
         end
     else
         println(fid, "$(typename) $(uname) float $(size(u,2))")
@@ -583,15 +583,25 @@ function mk_vtk_data(fid, typename, uname, u)
 end
 
 """
-    vtkwrite(fname, m::HighOrderMesh{D,G,P,T}, u::Array{T}=T[]) where {D,G,P,T}
+    vtkwrite(fname, m::HighOrderMesh{D,G,P,T}, u::Array{T}=T[]; umap=nothing) where {D,G,P,T}
+
+    umap: Vector with indices into u for each VTK solution field
+
+          Ex:
+                m = ex1mesh()
+                u = hcat(m.x[:,1].^2, m.x[:,2], -m.x[:,1]) # 3 components
+                vtkwrite("ex1.vtk", m, u, umap=[1, 2:3])   # 2 VTK solution fields:
+                                                           #   component 1   (scalar)
+                                                           #   component 2-3 (vector)
+
 
 TBW
 """
-function vtkwrite(fname, m::HighOrderMesh{D,G,P,T}, u::Array{T}=T[]) where {D,G,P,T}
+function vtkwrite(fname, m::HighOrderMesh{D,G,P,T}, u::Array{T}=T[]; umap=nothing) where {D,G,P,T}
      if size(u,1) == size(m.x,1)
         # Assume CG solution
-        x = m.x
-        el = m.el
+        x = copy(m.x)
+        el = copy(m.el)
     elseif size(u,1) == size(m.el,1)
         # Assume DG solution
         ns,nel = size(m.el,1),size(m.el,2)
@@ -629,9 +639,18 @@ function vtkwrite(fname, m::HighOrderMesh{D,G,P,T}, u::Array{T}=T[]) where {D,G,
     write_matrix(fid, fill(celltype, nel))
     println(fid, "POINT_DATA $nx")
 
-    if !isempty(u)
+    if isnothing(umap)
         mk_vtk_data(fid, "SCALARS", "scalar_data", u)
-        ### TODO: Vector fields
+    else
+        for i in 1:length(umap)
+            comp = umap[i]
+            if isa(comp, Number)
+                mk_vtk_data(fid, "SCALARS", "u$comp", u[:,comp])
+            else
+                nbr = string(( "$(c)" for c in comp )...)
+                mk_vtk_data(fid, "VECTORS", "u$nbr", u[:,comp])
+            end
+        end
     end
 
     close(fid)
