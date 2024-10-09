@@ -21,4 +21,14 @@ using Test
         m = gmsh2msh(fullname)
         @test elgeom(m) == eg
     end
+
+    # Solve and plot -∇²u = 1 with zero Dirichlet boundary conditions on the unit circle
+    for n = 1:4, porder = 1:4
+        m = mshcircle(n, p=porder)
+        pc = FEM_precomp(m)
+        u,A,f = cg_poisson(m, pc, xy->1)
+        uexact = (1 .- sum(m.x.^2,dims=2)) / 4
+        error = maximum(abs.(u[:] - uexact[:]))
+        @test error < 5e-2   # TODO: Fix bugs and make this tolerance n/p dependent
+    end
 end
