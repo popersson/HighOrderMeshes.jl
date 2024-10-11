@@ -29,6 +29,7 @@ using Test
         u,A,f = cg_poisson(m, pc, xy->1)
         uexact = (1 .- sum(m.x.^2,dims=2)) / 4
         error = maximum(abs.(u[:] - uexact[:]))
+        #@show (n,porder,error)
         @test error < 5e-2   # TODO: Fix bugs and make this tolerance n/p dependent
     end
 end
