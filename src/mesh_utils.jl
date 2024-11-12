@@ -271,11 +271,40 @@ function set_bnd_numbers!(m::HighOrderMesh, bndexpr)
             m.nbor[j,iel] = (-bndnbr,0)
         end
     end
-
 end
 
+"""
+    set_bnd_periodic!(m::HighOrderMesh{D,G,P,T}, bnds, dir) where {D,G,P,T}
 
+Example:
+```julia
+    msh = mshsquare(5)
+    set_bnd_periodic!(msh, (1,2), 1)    # Periodic left/right (x-direction)
+    set_bnd_periodic!(msh, (3,4), 2)    # Periodic bottom/top (y-direction)
+```
+"""
+function set_bnd_periodic!(m::HighOrderMesh{D,G,P,T}, bnds, dir) where {D,G,P,T}
+    nf,nel = size(m.nbor)
+    f2n = mkface2nodes(m)
 
+    match_coords = (1:D) .≠ dir
+    scaling = maximum(abs.(m.x))
+    dd = Dict{Matrix{T}, NTuple{2,Int}}()
+    for iel in axes(m.nbor,2), j in axes(m.nbor,1)
+        if -m.nbor[j,iel][1] ∈ bnds
+            facex = m.x[m.el[f2n[:,j],iel],:]
+            key = snap.(facex[:,match_coords])
+            key = sortslices(key, dims=1)
+            if haskey(dd, key)
+                iel0,j0 = pop!(dd, key)
+                m.nbor[j,iel] = (iel0,j0)
+                m.nbor[j0,iel0] = (iel,j)
+            else
+                dd[key] = (iel,j)
+            end
+        end
+    end
+end
 
 #######################################################################3
 ## gmsh import

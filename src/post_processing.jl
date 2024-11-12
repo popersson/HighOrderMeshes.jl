@@ -14,7 +14,9 @@ function viz_mesh(m::HighOrderMesh{2,G,P,T};
     curves = fill(zeros(F,0,0), nf, nel)
     for iel = 1:nel, iface = 1:nf
         jel, jface = m.nbor[iface, iel]
-        if iel < jel || jel < 1
+
+        is_main_side = true # iel < jel || jel < 1  # removed to allow for periodic boundaries
+        if is_main_side
             xy = xdg[f2n[:, iface], iel, :]
             evaledge(nsub) = F.(eval_fcn(m.fe, xy, (0:nsub) ./ T(nsub)))
             rowwise2norm(X) = sqrt.(sum(X .^ 2, dims=2))
@@ -47,7 +49,7 @@ function viz_mesh(m::HighOrderMesh{2,G,P,T};
             end
 
             curves[iface, iel] = X
-            if jel > 0
+            if !is_main_side
                 curves[jface, jel] = reverse(X, dims=1)
             end
         end

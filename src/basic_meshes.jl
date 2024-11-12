@@ -28,9 +28,13 @@ end
 
 TBW
 """
-function mshhypercube(dims::NTuple{D,Int}; p=1, T=Float64) where D
+function mshhypercube(dims::NTuple{D,Int}; p=1, T=Float64, periodic_dirs=()) where D
     bndexpr(x) = [x'; 1 .- x'][:]
-    change_degree(HighOrderMesh(blockmesh_hypercube(dims; T=T)..., bndexpr=bndexpr), p)
+    m = HighOrderMesh(blockmesh_hypercube(dims; T=T)..., bndexpr=bndexpr)
+    for d in periodic_dirs
+        set_bnd_periodic!(m, (2d-1,2d), d)
+    end
+    change_degree(m, p)
 end
 
 mshcube(m=5, n=m, o=n; kwargs...) = mshhypercube((m,n,o); kwargs...)
