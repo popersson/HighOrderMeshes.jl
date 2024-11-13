@@ -6,7 +6,7 @@ export equispaced, ref_nodes
 export FiniteElement, elgeom, dim, porder, nbr_ho_nodes, corner_nodes, name
 export eval_shapefcns, eval_fcn
 export HighOrderMesh, dg_nodes, elgeom, dim, porder, el2nbor, change_ref_nodes, change_degree
-export write_matrix, read_matrix!, savemesh, loadmesh, uniref, gmsh2msh, rungmsh2msh, vtkwrite, mkface2nodes, mkldgswitch, boundary_nodes, align_with_ldgswitch!, set_bnd_numbers!, set_bnd_periodic!, unique_mesh_nodes
+export write_matrix, read_matrix!, savemesh, loadmesh, savemeshtxt, loadmeshtxt, uniref, gmsh2msh, rungmsh2msh, vtkwrite, mkface2nodes, mkldgswitch, boundary_nodes, align_with_ldgswitch!, set_bnd_numbers!, set_bnd_periodic!, unique_mesh_nodes
 export quadrature
 export FEM_precomp, eval_gϕx, elmat_mass, elmat_poisson, elres_rhs, assemble_matrix, assemble_vector, strong_dirichlet!, cg_poisson
 export optimize_mesh!

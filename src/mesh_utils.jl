@@ -1,3 +1,34 @@
+using HDF5
+
+######################
+## File I/O
+
+filevars = ("s1","x","el","nbor")
+
+function savemesh(fname, m::HighOrderMesh)
+    h5open(fname, "w") do fid
+        dat = (m.fe.ref_nodes[1][:], m.x, m.el, m.nbor)
+        for i in eachindex(filevars)
+            fid[filevars[i], compress=9] = dat[i]
+        end
+    end
+end
+
+function loadmesh(fname)
+    s1,x,el,nbor = h5open(fname, "r") do fid
+        read.([fid], filevars)
+    end
+    nbor = Tuple.(nbor)
+    D = size(x,2)
+    P = length(s1) - 1
+    G = find_elgeom(D, P, size(el,1))
+    fe = FiniteElement(G, s1)
+    m = HighOrderMesh(fe, x, el, nbor)
+end
+
+######################
+
+
 """
     write_matrix(f, x)
 
@@ -28,11 +59,11 @@ function read_matrix!(f, x)
 end
 
 """
-    savemesh(fname, m::HighOrderMesh)
+    savemeshtxt(fname, m::HighOrderMesh)
 
 TBW
 """
-function savemesh(fname, m::HighOrderMesh)
+function savemeshtxt(fname, m::HighOrderMesh)
     nx = size(m.x,1)
     nel = size(m.el,2)
 
@@ -44,11 +75,11 @@ function savemesh(fname, m::HighOrderMesh)
 end
 
 """
-    loadmesh(fname)
+    loadmeshtxt(fname)
 
 TBW
 """
-function loadmesh(fname)
+function loadmeshtxt(fname)
     f = open(fname, "r")
     line = split(readline(f), " ")
     nx,nel,ne = parse.(Int64, line[1:3])

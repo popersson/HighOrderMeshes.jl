@@ -62,3 +62,13 @@ function find_elgeom(D, nv)
         error("Cannot determine element shape")
     end
 end
+
+function find_elgeom(D, P, nnodes)
+    if (P+1)^D == nnodes
+        return Block{D}()
+    elseif binomial(P+D,D) == nnodes
+        return Simplex{D}()
+    else
+        error("Cannot determine element shape")
+    end
+end
