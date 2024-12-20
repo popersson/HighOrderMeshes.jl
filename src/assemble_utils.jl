@@ -43,15 +43,13 @@ function eval_gϕx(pc::FEM_precomp, iel)
 end
 
 function elmat_mass(pc::FEM_precomp, iel)
-    gwϕ = pc.gwJdet[:,iel] .* gϕx
-    cMel = gϕ' * gwϕ
+    cMel = pc.gϕ' * (pc.gwJdet[:,iel] .* pc.gϕ)
 end
 
-function elmat_poisson(pc::FEM_precomp, iel)
+function elmat_laplace(pc::FEM_precomp, iel)
     gϕx = eval_gϕx(pc, iel)
     gwϕx = pc.gwJdet[:,iel] .* gϕx
     cAel = sum( (gϕx[:,:,d]' * gwϕx[:,:,d] for d = 1:pc.dim) )
-    cAel
 end
 
 function elres_rhs(pc::FEM_precomp, iel, fcn_rhs=x->1)
@@ -84,6 +82,10 @@ function strong_dirichlet!(A, f, bndix)
     f[bndix] .= 0
 end
 
+function cg_mass(m::HighOrderMesh, pc::FEM_precomp)
+    A = assemble_matrix(m.el, i -> elmat_mass(pc, i))
+end
+
 
 """
     cg_poisson(m::HighOrderMesh, pc::FEM_precomp, fcn_rhs=xy->xy[1]^2, dirichlet_bnds=nothing)
@@ -98,9 +100,10 @@ plot(m,u, contours=10, mesh_edges=true)
 ```
 """
 function cg_poisson(m::HighOrderMesh, pc::FEM_precomp, fcn_rhs=xy->xy[1]^2, dirichlet_bnds=nothing)
-    A = assemble_matrix(m.el, i -> elmat_poisson(pc, i))
+    A = assemble_matrix(m.el, i -> elmat_laplace(pc, i))
     f = assemble_vector(m.el, i -> elres_rhs(pc, i, fcn_rhs))
     strong_dirichlet!(A, f, boundary_nodes(m, dirichlet_bnds))
     u = A \ f
     u,A,f
 end
+
