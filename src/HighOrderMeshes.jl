@@ -1,13 +1,13 @@
 module HighOrderMeshes
 
 export ElementGeometry, Simplex, Block, dim, name, nvertices, nfaces, nedges, facemap, edgemap, subgeom
-export legendre_poly, multivar_legendre_poly, multivar_monomial_poly, eval_poly
+export legendre_poly_neg1pos1, legendre_poly, multivar_legendre_poly, multivar_monomial_poly, eval_poly
 export equispaced, ref_nodes
 export FiniteElement, elgeom, dim, porder, nbr_ho_nodes, corner_nodes, name
 export eval_shapefcns, eval_fcn
-export HighOrderMesh, dg_nodes, elgeom, dim, porder, el2nbor, change_ref_nodes, change_degree
+export HighOrderMesh, dg_nodes, elgeom, dim, porder, el2nbor, change_ref_nodes, change_degree, change_to_lobatto_nodes
 export write_matrix, read_matrix!, savemesh, loadmesh, savemeshtxt, loadmeshtxt, uniref, gmsh2msh, rungmsh2msh, vtkwrite, mkface2nodes, mkldgswitch, boundary_nodes, align_with_ldgswitch!, set_bnd_numbers!, set_bnd_periodic!, unique_mesh_nodes
-export quadrature
+export quadrature, gauss_legendre_quadrature, gauss_lobatto_nodes, gauss_lobatto_quadrature
 export FEM_precomp, eval_gϕx, elmat_mass, elmat_poisson, elres_rhs, assemble_matrix, assemble_vector, strong_dirichlet!, cg_mass, cg_poisson
 export optimize_mesh!
 export blockmesh_hypercube, mshhypercube, mshcube, mshsquare, mshline, mshcircle

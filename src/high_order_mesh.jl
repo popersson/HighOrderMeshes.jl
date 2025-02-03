@@ -93,3 +93,5 @@ change_ref_nodes(m::HighOrderMesh{D,G,P,T}, newsline::Vector{T}) where {D,G,P,T}
 change_degree(m::HighOrderMesh{D,G,P,T}, newp::Int) where {D,G,P,T} =
     change_ref_nodes(m, FiniteElement(G(), newp, T))
 
+change_to_lobatto_nodes(m::HighOrderMesh{D,Block{D},P,T}) where {D,P,T} =
+    change_ref_nodes(m, gauss_lobatto_nodes(P+1))
