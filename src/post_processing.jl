@@ -137,7 +137,12 @@ function viz_solution(m::HighOrderMesh{D,G,P,T}, u::Array{T}; nsub=nothing) wher
     F = Float64
 
     is_cg = mesh_function_type(m,u) == :cg
-    is_cg && (u = u[m.el,:])
+
+    if is_cg
+        u = u[m.el,:]   # Make DG format
+    elseif size(u,3) == size(m.el,2) # Support flipped 2,3 arguments in DG format
+        u = permutedims(u, (1,3,2))
+    end
     
     if ndims(u) > 2
         u = u[:,:,1]
