@@ -233,6 +233,28 @@ function rungmsh2msh(gmshfname; porder=1, cmdadd="")
     msh
 end
 
+function gmshstr2msh(geostr; porder=1, cmdadd="")
+    fbase = tempname()
+    fin = fbase * ".geo"
+    fout = fbase * ".msh"
+
+    open(fin,"w") do io
+        println(io, geostr)
+    end
+    
+    if isa(cmdadd, String)
+        cmdadd = split(cmdadd)
+    end
+    gmshcmd = `gmsh -3 -format msh2 -o $fout $fin -order $porder $cmdadd`
+    gmsh_output = read(gmshcmd, String)
+    msh = gmsh2msh(fout)
+
+    rm(fin)
+    rm(fout)
+    msh
+end
+
+
 ## ==============================================================================
 
 ## VTK export
@@ -381,15 +403,19 @@ end
 
 ## ==============================================================================
 
+eltype3dg(::ElementGeometry) = throw("Unsupported element type")
+eltype3dg(::Simplex) = 0
+eltype3dg(::Block) = 1
+
 # Convert to the mesh format in the DG-FEM package 3DG
 # Returns 3DG mesh fields as named tuple
 function mshto3dg(m::HighOrderMesh{D,G,P,T}) where {D,G,P,T}
-    eltype3dg(::ElementGeometry) = throw("Unsupported element type")
-    eltype3dg(::Simplex) = 0
-    eltype3dg(::Block) = 1
-    el,nv,nf = eltype3dg(G()), nvertices(G()), nfaces(G())
+    eltype,nv,nf = eltype3dg(G()), nvertices(G()), nfaces(G())
 
-    if el == 1 # Block
+    dim = D
+    porder = P
+
+    if eltype == 1 # Block
         s0 = gauss_lobatto_nodes(P+1, T=T)
         if !isapprox(s0, ref_nodes(m.fe,1))
             throw("3DG only supports quad meshes with Lobatto nodes. Consider using change_to_lobatto_nodes")
@@ -420,11 +446,8 @@ function mshto3dg(m::HighOrderMesh{D,G,P,T}) where {D,G,P,T}
     ecurved = fill(Cuchar(1), 4, nt);
     tcurved = fill(Cuchar(1), 1, nt);
 
-    return (dim=D, np=np, nt=nt, ns=ns, nsbnd=nsbnd, ns0=ns0,
-            nv=nv, nf=nf, eltype=el, porder=P,
-            p=p, p1=p1, s=s, sbnd=sbnd, s0=s0,
-            t=t, t2t=t2t, t2n=t2n,
-            ncurved=ncurved, ecurved=ecurved, tcurved=tcurved)
+    return (; dim, np, nt, ns, nsbnd, ns0, nv, nf, eltype, porder,
+            p, p1, s, sbnd, s0, t, t2t, t2n, ncurved, ecurved, tcurved)
 end
 
 ## ==============================================================================
