@@ -85,7 +85,12 @@ function GLMakie.plot(m::HighOrderMesh{D,G,P,T}, u::Array{T}; nsub=nothing, mesh
             all_lines = vcat(int_lines, bnd_lines)
             lines!(ax, all_lines[:, 1], all_lines[:, 2], linewidth=1.0, color=:black)
         end
-        Colorbar(f[1,2], limits=(minimum(allu), maximum(allu)))
+        lims = (minimum(allu), maximum(allu))
+        if typeof(f.content[end]) == Colorbar
+            f.content[end].limits = lims
+        else
+            Colorbar(f[1,2], limits=lims)
+        end
     else
         throw("Dimension not implemented")
     end
