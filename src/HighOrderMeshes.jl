@@ -12,7 +12,7 @@ export FEM_precomp, eval_gϕx, elmat_mass, elmat_poisson, elres_rhs, assemble_ma
 export optimize_mesh!
 export blockmesh_hypercube, mshhypercube, mshcube, mshsquare, mshline, mshcircle
 export viz_mesh, viz_solution, mesh_function_type
-export mshto3dg, gmsh2msh, rungmsh2msh, vtkwrite
+export mshto3dg, gmsh2msh, rungmsh2msh, gmshstr2msh, vtkwrite
 
 include("misc_utils.jl")
 include("element_geometry.jl")
