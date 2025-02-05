@@ -4,7 +4,6 @@ authors = ["Per-Olof Persson <persson@berkeley.edu>"]
 version = "0.1.0"
 
 [deps]
-ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
 HDF5 = "f67ccb44-e63f-5c2f-98bd-6dc0ccc4ba2f"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
@@ -20,7 +19,6 @@ HighOrderMeshesGLMakieExt = "GLMakie"
 HighOrderMeshesPlotsExt = "Plots"
 
 [compat]
-ForwardDiff = "0.10.36"
 GLMakie = "0.10, 0.11"
 HDF5 = "0.17"
 LinearAlgebra = "1.10"

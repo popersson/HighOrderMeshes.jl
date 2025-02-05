@@ -9,7 +9,6 @@ export HighOrderMesh, dg_nodes, elgeom, dim, porder, el2nbor, change_ref_nodes, 
 export write_matrix, read_matrix!, savemesh, loadmesh, savemeshtxt, loadmeshtxt, uniref, mkface2nodes, mkldgswitch, boundary_nodes, align_with_ldgswitch!, set_bnd_numbers!, set_bnd_periodic!, unique_mesh_nodes
 export quadrature, gauss_legendre_quadrature, gauss_lobatto_nodes, gauss_lobatto_quadrature
 export FEM_precomp, eval_gϕx, elmat_mass, elmat_poisson, elres_rhs, assemble_matrix, assemble_vector, strong_dirichlet!, cg_mass, cg_poisson
-export optimize_mesh!
 export blockmesh_hypercube, mshhypercube, mshcube, mshsquare, mshline, mshcircle
 export viz_mesh, viz_solution, mesh_function_type
 export mshto3dg, gmsh2msh, rungmsh2msh, gmshstr2msh, vtkwrite
@@ -25,7 +24,6 @@ include("post_processing.jl")
 include("simplex_quadrature_autogen.jl")
 include("quadrature.jl")
 include("assemble_utils.jl")
-include("optim_utils.jl")
 include("converters.jl")
 include("../examples/sample_meshes.jl")
 
