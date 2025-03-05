@@ -343,12 +343,15 @@ end
 TBW
 """
 function vtkwrite(fname, m::HighOrderMesh{D,G,P,T}, u::Array{T}=T[]; umap=nothing) where {D,G,P,T}
-     if size(u,1) == size(m.x,1)
+    if size(u,1) == size(m.x,1)
         # Assume CG solution
         x = copy(m.x)
         el = copy(m.el)
     elseif size(u,1) == size(m.el,1)
         # Assume DG solution
+        if size(u,3) == size(m.el,2) # Assume 3DG solution format
+            u = convert_3dg_solution(m, u)
+        end
         ns,nel = size(m.el,1),size(m.el,2)
         x = reshape(m.x[m.el,:], ns*nel, D)
         el = collect(reshape(1:ns*nel, ns, nel))
@@ -407,6 +410,14 @@ eltype3dg(::ElementGeometry) = throw("Unsupported element type")
 eltype3dg(::Simplex) = 0
 eltype3dg(::Block) = 1
 
+node_order_3dg(m::HighOrderMesh) = 1:nbr_ho_nodes(m.fe)
+
+function node_order_3dg(m::HighOrderMesh{D,Simplex{D},P}) where {D,P}
+    s3dg = ([ (i...,P-sum(i)) for i in Iterators.product(fill(0:P,D)...) if sum(i) <= P ])
+    shom = ([ (P-sum(i),i...) for i in Iterators.product(fill(0:P,D)...) if sum(i) <= P ])
+    ix = indexin(s3dg, shom)
+end
+
 # Convert to the mesh format in the DG-FEM package 3DG
 # Returns 3DG mesh fields as named tuple
 function mshto3dg(m::HighOrderMesh{D,G,P,T}) where {D,G,P,T}
@@ -415,7 +426,12 @@ function mshto3dg(m::HighOrderMesh{D,G,P,T}) where {D,G,P,T}
     dim = D
     porder = P
 
-    if eltype == 1 # Block
+    if eltype == 0 # Simplex
+        s = ref_nodes(Simplex{D}(), equispaced(P))
+        if !isapprox(s, ref_nodes(m.fe,D))
+            throw("3DG conversion only supported for standard simplex node order. Consider using change_degree(m, porder(m))")
+        end
+    elseif eltype == 1 # Block
         s0 = gauss_lobatto_nodes(P+1, T=T)
         if !isapprox(s0, ref_nodes(m.fe,1))
             throw("3DG only supports quad meshes with Lobatto nodes. Consider using change_to_lobatto_nodes")
@@ -436,6 +452,13 @@ function mshto3dg(m::HighOrderMesh{D,G,P,T}) where {D,G,P,T}
     t2t = [ Cint(zixmap(nb[1])) for nb in m1.nbor ]
     t2n = [ Cint(nb[2] - 1) for nb in m1.nbor ]
 
+    if eltype == 0 # Simplex
+        # Simplex node order in 3DG different than HOM
+        s = s[:,vcat(2:end,1)]
+        sbnd = sbnd[:,vcat(2:end,1)]
+        p1 = p1[node_order_3dg(m),:,:]
+    end
+    
     np = size(p,2)
     nt = size(t,2)
     ns = size(s,1)

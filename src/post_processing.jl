@@ -128,6 +128,12 @@ function mesh_function_type(m::HighOrderMesh, u::Array)
     end
 end
 
+function convert_3dg_solution(m::HighOrderMesh, u) 
+    u = permutedims(u, (1,3,2))
+    u[node_order_3dg(m),:,:] = u
+    u
+end
+
 """
     viz_solution(m::HighOrderMesh{D,G,P,T}, u::Array{T}; nsub=nothing) where {D,G,P,T}
 
@@ -140,8 +146,8 @@ function viz_solution(m::HighOrderMesh{D,G,P,T}, u::Array{T}; nsub=nothing) wher
 
     if is_cg
         u = u[m.el,:]   # Make DG format
-    elseif size(u,3) == size(m.el,2) # Support flipped 2,3 arguments in DG format
-        u = permutedims(u, (1,3,2))
+    elseif size(u,3) == size(m.el,2) # Assume 3DG solution format
+        u = convert_3dg_solution(m, u)
     end
     
     if ndims(u) > 2
