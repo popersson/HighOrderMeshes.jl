@@ -1,3 +1,9 @@
+"""
+    viz_mesh(m::HighOrderMesh{2,G,P,T};
+                  reltol=1e-3, abstol=Inf, maxref=6) where {G,P,T}
+
+TBW
+"""
 function viz_mesh(m::HighOrderMesh{2,G,P,T};
                   reltol=1e-3, abstol=Inf, maxref=6) where {G,P,T}
     F = Float64
@@ -8,7 +14,9 @@ function viz_mesh(m::HighOrderMesh{2,G,P,T};
     curves = fill(zeros(F,0,0), nf, nel)
     for iel = 1:nel, iface = 1:nf
         jel, jface = m.nbor[iface, iel]
-        if iel < jel || jel < 1
+
+        is_main_side = true # iel < jel || jel < 1  # removed to allow for periodic boundaries
+        if is_main_side
             xy = xdg[f2n[:, iface], iel, :]
             evaledge(nsub) = F.(eval_fcn(m.fe, xy, (0:nsub) ./ T(nsub)))
             rowwise2norm(X) = sqrt.(sum(X .^ 2, dims=2))
@@ -41,7 +49,7 @@ function viz_mesh(m::HighOrderMesh{2,G,P,T};
             end
 
             curves[iface, iel] = X
-            if jel > 0
+            if !is_main_side
                 curves[jface, jel] = reverse(X, dims=1)
             end
         end
@@ -110,15 +118,38 @@ function subelement_mesh(::Simplex{2}, n, T=Float64)
     x,el
 end
 
+function mesh_function_type(m::HighOrderMesh, u::Array)
+    if size(u,1) == size(m.x,1)
+        return :cg
+    elseif size(u,1) == size(m.el,1)
+        return :dg
+    else
+        throw("Solution field does not match CG or DG type for the mesh")
+    end
+end
+
+function convert_3dg_solution(m::HighOrderMesh, u) 
+    u = permutedims(u, (1,3,2))
+    u[node_order_3dg(m),:,:] = u
+    u
+end
+
+"""
+    viz_solution(m::HighOrderMesh{D,G,P,T}, u::Array{T}; nsub=nothing) where {D,G,P,T}
+
+TBW
+"""
 function viz_solution(m::HighOrderMesh{D,G,P,T}, u::Array{T}; nsub=nothing) where {D,G,P,T}
     F = Float64
 
-    if size(u,1) == size(m.x,1)
-        # Assume CG solution
-        u = u[m.el,:]
-    elseif size(u,1) == size(m.el,1)
-        # Assume DG solution
+    is_cg = mesh_function_type(m,u) == :cg
+
+    if is_cg
+        u = u[m.el,:]   # Make DG format
+    elseif size(u,3) == size(m.el,2) # Assume 3DG solution format
+        u = convert_3dg_solution(m, u)
     end
+    
     if ndims(u) > 2
         u = u[:,:,1]
     end
@@ -142,5 +173,10 @@ function viz_solution(m::HighOrderMesh{D,G,P,T}, u::Array{T}; nsub=nothing) wher
     allel = hcat(allel...)
     allx = vcat(allx...)
 
+    if is_cg
+        allx,allel,ix = unique_mesh_nodes(allx,allel,output_ix=true)
+        allu = allu[ix]
+    end
+    
     allx, allu, allel
 end

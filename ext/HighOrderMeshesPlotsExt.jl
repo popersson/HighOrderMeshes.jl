@@ -5,6 +5,14 @@ using Plots, TriplotRecipes
 
 const meshgreen = Plots.RGBX(0.8, 1, 0.8)
 
+"""
+    Plots.plot(m::HighOrderMesh{2,G,P,T};
+               labels=(), reltol=1e-3, abstol=Inf, maxref=6,
+               colors=(meshgreen, :black, :blue, :darkgray, :darkblue)
+               # colors: elements, int edges, bnd edges, ho-nodes, vertices)
+
+TBW
+"""
 function Plots.plot(m::HighOrderMesh{2,G,P,T};
     labels=(), reltol=1e-3, abstol=Inf, maxref=6,
     colors=(meshgreen, :black, :blue, :darkgray, :darkblue)
@@ -37,13 +45,31 @@ function Plots.plot(m::HighOrderMesh{2,G,P,T};
     return h
 end
 
-function Plots.plot(m::HighOrderMesh{D,G,P,T}, u::Array{T}; nsub=nothing) where {D,G,P,T}
+"""
+    Plots.plot(m::HighOrderMesh{D,G,P,T}, u::Array{T}; nsub=nothing, mesh_edges=false)
+
+TBW
+"""
+function Plots.plot(m::HighOrderMesh{D,G,P,T}, u::Array{T}; nsub=nothing, mesh_edges=false, contours=0) where {D,G,P,T}
     allx, allu, allel = viz_solution(m, u, nsub=nsub)
     
     if D == 1
         return Plots.plot(allx[allel], allu[allel], color=:black, legend=false)
     elseif D == 2
-        return TriplotRecipes.tripcolor(allx[:,1], allx[:,2], allu, allel, color=:viridis, aspect_ratio=:equal)
+        h = TriplotRecipes.tripcolor(allx[:,1], allx[:,2], allu, allel, color=:viridis, aspect_ratio=:equal)
+        if contours != 0
+            if mesh_function_type(m,u) != :cg
+                throw("Contours only supported for CG functions")
+            end
+            h = TriplotRecipes.tricontour!(allx[:,1], allx[:,2], allu, allel,
+                                           contours, colorbar_entry=false)
+        end
+        if mesh_edges
+            _, int_lines, bnd_lines, _ =viz_mesh(m)
+            all_lines = vcat(int_lines, bnd_lines)
+            Plots.plot!(all_lines[:, 1], all_lines[:, 2], linewidth=0.5, color=:black, legend=false)
+        end
+        return h
     else
         throw("Dimension not implemented")
     end
