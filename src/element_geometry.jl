@@ -47,10 +47,8 @@ edgemap(::Block{2}) = [[1,2] [2,4] [4,3] [3,1]]
 edgemap(::Block{3}) = [[1,2] [2,4] [4,3] [3,1] [1,5] [2,6] #=
                     =# [4,8] [3,7] [5,6] [6,8] [8,7] [7,5]]
 
-linegeom(::Simplex{D}) where {D} = Simplex{1}()
-linegeom(::Block{D}) where {D} = Block{1}()
-facegeom(::Simplex{D}) where {D} = Simplex{D-1}()
-facegeom(::Block{D}) where {D} = Block{D-1}()
+subgeom(::Simplex{D}, newD) where {D} = Simplex{newD}()
+subgeom(::Block{D}, newD) where {D} = Block{newD}()
 
 midpoint(::Simplex{D}) where D = fill(1/(D+1), D)
 midpoint(::Block{D}) where D = fill(1/2, D)
@@ -59,6 +57,16 @@ function find_elgeom(D, nv)
     if nv == nvertices(Block{D}())
         return Block{D}()
     elseif nv == nvertices(Simplex{D}())
+        return Simplex{D}()
+    else
+        error("Cannot determine element shape")
+    end
+end
+
+function find_elgeom(D, P, nnodes)
+    if (P+1)^D == nnodes
+        return Block{D}()
+    elseif binomial(P+D,D) == nnodes
         return Simplex{D}()
     else
         error("Cannot determine element shape")
