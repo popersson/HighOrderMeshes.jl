@@ -18,7 +18,7 @@ function loadmesh(fname)
     s1,x,el,nbor = h5open(fname, "r") do fid
         read.([fid], filevars)
     end
-    nbor = Tuple.(nbor)
+    nbor = NeighborData.(nbor)
     D = size(x,2)
     P = length(s1) - 1
     G = find_elgeom(D, P, size(el,1))
@@ -205,7 +205,7 @@ function mkldgswitch(eg::Block{D}, nbor) where {D}
         dir = 1
         while true
             sw[j,iel] = dir
-            jel,k = nbor[j,iel]
+            jel,k,_ = nbor[j,iel]
             if jel > 0
                 sw[k,jel] = 1 - dir
                 iel = jel
@@ -240,7 +240,7 @@ function boundary_nodes(m::HighOrderMesh, bndnbrs=nothing)
     nodes = Int64[]
     for iel in 1:nel
         for j in 1:nf
-            jel,k = m.nbor[j,iel]
+            jel,k,_ = m.nbor[j,iel]
             if jel < 1 && (isnothing(bndnbrs) || -jel ∈ bndnbrs)
                 append!(nodes, m.el[f2n[:,j],iel])
             end
@@ -281,7 +281,7 @@ function align_with_ldgswitch!(m::HighOrderMesh{2,Block{2},P}, sw=nothing) where
         for j = 1:4
             if cnbor[j][2] > 0
                 jel = cnbor[j][1]
-                cnbor[j] = (jel, ifcmaps[mapcase[jel]][cnbor[j][2]] )
+                cnbor[j] = (jel, ifcmaps[mapcase[jel]][cnbor[j][2]], 0 )
             end
         end
         m.nbor[:,iel] = cnbor[fcmaps[cmap]]
@@ -299,7 +299,7 @@ function set_bnd_numbers!(m::HighOrderMesh, bndexpr)
             onbnd = hcat([ snap.(bndexpr(cx)) .== 0 for cx in eachrow(facex) ]...)
             bndnbr = findfirst(all(onbnd,dims=2)[:])
             isnothing(bndnbr) && throw("No boundary expression matching boundary face")
-            m.nbor[j,iel] = (-bndnbr,0)
+            m.nbor[j,iel] = (-bndnbr,0,0)
         end
     end
 end
@@ -315,6 +315,7 @@ Example:
 ```
 """
 function set_bnd_periodic!(m::HighOrderMesh{D,G,P,T}, bnds, dir) where {D,G,P,T}
+    # TODO: Neighbor face permutation
     nf,nel = size(m.nbor)
     f2n = mkface2nodes(m)
 
@@ -328,8 +329,8 @@ function set_bnd_periodic!(m::HighOrderMesh{D,G,P,T}, bnds, dir) where {D,G,P,T}
             key = sortslices(key, dims=1)
             if haskey(dd, key)
                 iel0,j0 = pop!(dd, key)
-                m.nbor[j,iel] = (iel0,j0)
-                m.nbor[j0,iel0] = (iel,j)
+                m.nbor[j,iel] = (iel0,j0,0)
+                m.nbor[j0,iel0] = (iel,j,0)
             else
                 dd[key] = (iel,j)
             end

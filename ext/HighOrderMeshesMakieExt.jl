@@ -1,7 +1,7 @@
-module HighOrderMeshesGLMakieExt
+module HighOrderMeshesMakieExt
 
 using HighOrderMeshes
-using GLMakie
+using Makie
 
 const meshgreen = "#CCFFCC"
 
@@ -20,14 +20,14 @@ end
 
 
 """
-    GLMakie.plot(m::HighOrderMesh{2,G,P,T};
+    Makie.plot(m::HighOrderMesh{2,G,P,T};
                labels=(), reltol=1e-3, abstol=Inf, maxref=6,
                colors=(meshgreen, :black, :blue, :darkgray, :darkblue)
                # colors: elements, int edges, bnd edges, ho-nodes, vertices)
 
 TBW
 """
-function GLMakie.plot(m::HighOrderMesh{2,G,P,T};
+function Makie.plot(m::HighOrderMesh{2,G,P,T};
     labels=(), reltol=1e-3, abstol=Inf, maxref=6,
     colors=(meshgreen, :black, :blue, :darkgray, :darkblue)
     # colors: elements, int edges, bnd edges, ho-nodes, vertices
@@ -64,11 +64,11 @@ function GLMakie.plot(m::HighOrderMesh{2,G,P,T};
 end
 
 """
-    GLMakie.plot(m::HighOrderMesh{D,G,P,T}, u::Array{T}; nsub=nothing, mesh_edges=false)
+    Makie.plot(m::HighOrderMesh{D,G,P,T}, u::Array{T}; nsub=nothing, mesh_edges=false)
 
 TBW
 """
-function GLMakie.plot(m::HighOrderMesh{D,G,P,T}, u::Array{T}; nsub=nothing, mesh_edges=false, contours=0) where {D,G,P,T}
+function Makie.plot(m::HighOrderMesh{D,G,P,T}, u::Array{T}; nsub=nothing, mesh_edges=false, contours=0) where {D,G,P,T}
     allx, allu, allel = viz_solution(m, u, nsub=nsub)
   
     if D == 1

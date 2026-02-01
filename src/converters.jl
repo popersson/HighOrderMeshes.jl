@@ -207,7 +207,7 @@ function gmsh2msh(gmsh_fname)
 
         surf_map = indexin(m_surf_nodes, eachcol(surf_nodes))
         for i in eachindex(surf_map)
-            m.nbor[m_surf_index[i]...] = (-element_tags[surf_loc[surf_map[i]]][tagcol],0)
+            m.nbor[m_surf_index[i]...] = (-element_tags[surf_loc[surf_map[i]]][tagcol],0,0)
         end
     end
     
@@ -429,18 +429,18 @@ function mshto3dg(m::HighOrderMesh{D,G,P,T}) where {D,G,P,T}
     if eltype == 0 # Simplex
         s = ref_nodes(Simplex{D}(), equispaced(P))
         if !isapprox(s, ref_nodes(m.fe,D))
-            throw("3DG conversion only supported for standard simplex node order. Consider using change_degree(m, porder(m))")
+            throw("3DG conversion only supported for standard simplex node order. Consider using set_degree(m, porder(m))")
         end
     elseif eltype == 1 # Block
         s0 = gauss_lobatto_nodes(P+1, T=T)
         if !isapprox(s0, ref_nodes(m.fe,1))
-            throw("3DG only supports quad meshes with Lobatto nodes. Consider using change_to_lobatto_nodes")
+            throw("3DG only supports quad meshes with Lobatto nodes. Consider using set_lobatto_nodes")
         end
     end
     
     p1 = permutedims(dg_nodes(m), (1,3,2))
     
-    m1 = change_degree(m, 1)
+    m1 = set_degree(m, 1)
     s = eval_shapefcns(m1.fe, ref_nodes(m.fe, D))
     sbnd = eval_shapefcns(m1.fe, ref_nodes(m.fe, D-1))
     # s0 = eval_shapefcns(m1.fe, ref_nodes(m.fe, 1)) # Should be this for consistency
@@ -451,6 +451,7 @@ function mshto3dg(m::HighOrderMesh{D,G,P,T}) where {D,G,P,T}
     zixmap(i) = i>0 ? i-1 : i
     t2t = [ Cint(zixmap(nb[1])) for nb in m1.nbor ]
     t2n = [ Cint(nb[2] - 1) for nb in m1.nbor ]
+    # TODO: Add neighbor face permutation in t2n
 
     if eltype == 0 # Simplex
         # Simplex node order in 3DG different than HOM

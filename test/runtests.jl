@@ -1,35 +1,120 @@
-using HighOrderMeshes
 using Test
 
-@testset "HighOrderMeshes.jl" begin
-    for eg in (Block{2}(), Simplex{2}()), nref in 1:3
-        @test porder(ex1mesh(nref=nref, eg=eg)) == 3
-    end
+# -------------------------------------------------------------------
+# 1. Core Library Tests
+# -------------------------------------------------------------------
+module TestCore
+    using Test
+    using HighOrderMeshes
 
-    for eltpe in (Float64, Float32, Rational{Int})
-        m = mshsquare(5, 3; T=eltpe)
-        @test size(m.el) == (4,15)
-        @test eltype(m.x) == eltpe
+    @testset "HighOrderMeshes.jl" begin
+        for eg in (Block{2}(), Simplex{2}()), nref in 1:3
+            @test porder(ex1mesh(nref=nref, eg=eg)) == 3
+        end
+        
+        for xtype in (Float64, Float32, Rational{Int})
+            m = mshsquare(5, 3; T=xtype)
+            @test size(m.el) == (4,15)
+            @test eltype(m.x) == xtype
+        end
+        
+        rootdir = pkgdir(HighOrderMeshes)
+        for (filename,eg) in (("circle_tris.msh", Simplex{2}()),
+                              ("square_tris.msh", Simplex{2}()),
+                              ("circle_quads.msh", Block{2}()),
+                              ("square_quads.msh", Block{2}()))
+            fullname = joinpath(rootdir, "examples/gmsh", filename)
+            m = gmsh2msh(fullname)
+            @test elgeom(m) == eg
+        end
+        
+        # Solve and plot -∇²u = 1 with zero Dirichlet boundary conditions on the unit circle
+        for n = 1:4, porder = 1:4
+            m = mshcircle(n, p=porder)
+            pc = FEM_precomp(m)
+            u,A,f = cg_poisson(m, pc, xy->1)
+            uexact = (1 .- sum(m.x.^2,dims=2)) / 4
+            error = maximum(abs.(u[:] - uexact[:]))
+            #@show (n,porder,error)
+            @test error < 5e-2   # TODO: Fix bugs and make this tolerance n/p dependent
+        end
+        
+        @testset "VTK Export" begin
+            m = ex1mesh()
+            u = ex1solution(m)
+            
+            mktempdir() do tmpdir
+                filename = joinpath(tmpdir, "ex1.vtk")
+                vtkwrite(filename, m, u)
+                
+                @test isfile(filename)
+                @test filesize(filename) > 0
+                header = open(readline, filename)
+                @test startswith(header, "# vtk")
+            end
+        end
     end
+    
+end
 
-    rootdir = pkgdir(HighOrderMeshes)
-    for (filename,eg) in (("circle_tris.msh", Simplex{2}()),
-                          ("square_tris.msh", Simplex{2}()),
-                          ("circle_quads.msh", Block{2}()),
-                          ("square_quads.msh", Block{2}()))
-        fullname = joinpath(rootdir, "examples/gmsh", filename)
-        m = gmsh2msh(fullname)
-        @test elgeom(m) == eg
+# -------------------------------------------------------------------
+# 2. Test Plots.jl Extension
+# -------------------------------------------------------------------
+module TestPlots
+    using Test
+    using HighOrderMeshes
+    using Plots
+    using TriplotRecipes 
+
+    # Setup headless mode for GR (Plots backend)
+    ENV["GKSwstype"] = "100"
+
+    @testset "Plots.jl Extension" begin
+        m = ex1mesh()
+        u = ex1solution(m)
+
+        function check_plots(p)
+            @test p isa Plots.Plot
+            mktempdir() do tmpdir
+                path = joinpath(tmpdir, "test_plot.png")
+                savefig(p, path)
+                @test isfile(path)
+                @test filesize(path) > 1000
+            end
+        end
+
+        p = plot(m)
+        check_plots(p)
+        p = plot(m, u)
+        check_plots(p)
     end
+end
 
-    # Solve and plot -∇²u = 1 with zero Dirichlet boundary conditions on the unit circle
-    for n = 1:4, porder = 1:4
-        m = mshcircle(n, p=porder)
-        pc = FEM_precomp(m)
-        u,A,f = cg_poisson(m, pc, xy->1)
-        uexact = (1 .- sum(m.x.^2,dims=2)) / 4
-        error = maximum(abs.(u[:] - uexact[:]))
-        #@show (n,porder,error)
-        @test error < 5e-2   # TODO: Fix bugs and make this tolerance n/p dependent
+# -------------------------------------------------------------------
+# 3. Test Makie Extension
+# -------------------------------------------------------------------
+module TestMakie
+    using Test
+    using HighOrderMeshes
+    using CairoMakie 
+
+    @testset "Makie Extension" begin
+        m = ex1mesh()
+        u = ex1solution(m)
+        
+        function check_makie(f)
+            @test f isa Makie.Figure
+            ax = content(f[1,1]) # Get the axis from the figure layout
+            @test !isempty(ax.scene.plots) 
+            mktempdir() do dir
+                save(joinpath(dir, "test_makie.png"), f)
+                @test isfile(joinpath(dir, "test_makie.png"))
+            end
+        end
+
+        f = plot(m)
+        check_makie(f)
+        f = plot(m, u)
+        check_makie(f)
     end
 end

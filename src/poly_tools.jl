@@ -132,3 +132,13 @@ function ref_nodes(::Simplex{D}, s1) where {D}
     sD = sD[sum(sD,dims=2)[:,1].<=1,:]
 end
 
+## Identify geometry from number of high-order nodes
+function find_elgeom(D, P, nnodes)
+    if (P+1)^D == nnodes
+        return Block{D}()
+    elseif binomial(P+D,D) == nnodes
+        return Simplex{D}()
+    else
+        error("Cannot determine element shape")
+    end
+end

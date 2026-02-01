@@ -14,7 +14,7 @@ m = mshline(nel)
 
 # New reference nodes
 ξ,w = gaussradau(porder+1)
-m = change_ref_nodes(m, ξ)
+m = set_ref_nodes(m, ξ)
 
 # Shape functions and gradient at new reference nodes
 V = eval_shapefcns(m.fe, ξ)                   # Should be identity

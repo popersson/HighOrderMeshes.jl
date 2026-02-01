@@ -1,8 +1,10 @@
+const NeighborData = Tuple{Int32, Int16, Int16}
+
 struct HighOrderMesh{D,G,P,T}
     fe::FiniteElement{D,G,P,T}
     x::Matrix{T}
     el::Matrix{Int}
-    nbor::Matrix{NTuple{2,Int}}
+    nbor::Matrix{NeighborData} 
 end
 
 """
@@ -44,13 +46,14 @@ function Base.show(io::IO, m::HighOrderMesh)
 end
 
 function el2nbor(el, eg)
+    # TODO: Implement neighbor face permutation
     map = facemap(eg)
     nv,nel = size(el)
     nfv = size(map,1)
     nf = size(map,2)
 
-    nb = fill((0,0), nf, nel)
-    dd = Dict{NTuple{nfv,Int}, NTuple{2,Int}}()
+    nb = fill(NeighborData((0,0,0)), nf, nel)
+    dd = Dict{NTuple{nfv,Int}, NeighborData}()
     sizehint!(dd, nel*nf)
     e = fill(0,nfv)
     for iel = 1:nel
@@ -61,9 +64,9 @@ function el2nbor(el, eg)
             if haskey(dd,et)
                 nbel = pop!(dd,et)
                 nb[jf,iel] = nbel
-                nb[nbel[2],nbel[1]] = (iel,jf)
+                nb[nbel[2],nbel[1]] = (iel,jf,0)
             else
-                dd[et] = (iel,jf)
+                dd[et] = (iel,jf,0)
             end
         end
     end
@@ -71,11 +74,11 @@ function el2nbor(el, eg)
 end
 
 """
-    change_ref_nodes(m::HighOrderMesh{D,G,P,T}, newfe::FiniteElement) where {D,G,P,T}
+    set_ref_nodes(m::HighOrderMesh{D,G,P,T}, newfe::FiniteElement) where {D,G,P,T}
 
 TBW
 """
-function change_ref_nodes(m::HighOrderMesh{D,G,P,T}, newfe::FiniteElement) where {D,G,P,T}
+function set_ref_nodes(m::HighOrderMesh{D,G,P,T}, newfe::FiniteElement) where {D,G,P,T}
     newp = porder(newfe)
     Pfe = eval_poly(G(), ref_nodes(newfe,D), P)
     newns = nbr_ho_nodes(newfe)
@@ -87,11 +90,11 @@ function change_ref_nodes(m::HighOrderMesh{D,G,P,T}, newfe::FiniteElement) where
     HighOrderMesh{D,G,newp,T}(newfe, newx, newel, m.nbor)
 end
 
-change_ref_nodes(m::HighOrderMesh{D,G,P,T}, newsline::Vector{T}) where {D,G,P,T} =
-    change_ref_nodes(m, FiniteElement(G(), newsline))
+set_ref_nodes(m::HighOrderMesh{D,G,P,T}, newsline::Vector{T}) where {D,G,P,T} =
+    set_ref_nodes(m, FiniteElement(G(), newsline))
 
-change_degree(m::HighOrderMesh{D,G,P,T}, newp::Int) where {D,G,P,T} =
-    change_ref_nodes(m, FiniteElement(G(), newp, T))
+set_degree(m::HighOrderMesh{D,G,P,T}, newp::Int) where {D,G,P,T} =
+    set_ref_nodes(m, FiniteElement(G(), newp, T))
 
-change_to_lobatto_nodes(m::HighOrderMesh{D,Block{D},P,T}) where {D,P,T} =
-    change_ref_nodes(m, gauss_lobatto_nodes(P+1))
+set_lobatto_nodes(m::HighOrderMesh{D,Block{D},P,T}) where {D,P,T} =
+    set_ref_nodes(m, gauss_lobatto_nodes(P+1))

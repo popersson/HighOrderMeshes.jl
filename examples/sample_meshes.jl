@@ -15,7 +15,7 @@ function ex1mesh(; nref=3, eg=Block{2}())
     x,el = sample_mesh(eg)
     m = HighOrderMesh(x,el)
     m = uniref(m,nref)
-    m = change_degree(m,3)
+    m = set_degree(m,3)
     x,y = m.x[:,1], m.x[:,2]
     fx = @. 0.1*sin(2pi*x)
     y2 = @. fx + (1-fx)*y
