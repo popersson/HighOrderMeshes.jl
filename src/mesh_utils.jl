@@ -3,7 +3,7 @@ using HDF5
 ######################
 ## File I/O
 
-filevars = ("s1","x","el","nbor")
+filevars = ("s1","x","el","nb")
 
 function savemesh(fname, m::HighOrderMesh)
     h5open(fname, "w") do fid
