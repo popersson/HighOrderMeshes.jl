@@ -200,14 +200,14 @@ function gmsh2msh(gmsh_fname)
         sort!(surf_nodes, dims=1)
 
         f2n = mkface2nodes(m)
-        nf,nel = size(m.nbor)
-        m_surf_nodes = [ m.el[f2n[:,j],iel] for j = 1:nf, iel = 1:nel if m.nbor[j,iel][1] < 1 ]
-        m_surf_index = [ (j,iel) for j = 1:nf, iel = 1:nel if m.nbor[j,iel][1] < 1 ]
+        nf,nel = size(m.nb)
+        m_surf_nodes = [ m.el[f2n[:,j],iel] for j = 1:nf, iel = 1:nel if m.nb[j,iel][1] < 1 ]
+        m_surf_index = [ (j,iel) for j = 1:nf, iel = 1:nel if m.nb[j,iel][1] < 1 ]
         sort!.(m_surf_nodes)
 
         surf_map = indexin(m_surf_nodes, eachcol(surf_nodes))
         for i in eachindex(surf_map)
-            m.nbor[m_surf_index[i]...] = (-element_tags[surf_loc[surf_map[i]]][tagcol],0,0)
+            m.nb[m_surf_index[i]...] = (-element_tags[surf_loc[surf_map[i]]][tagcol],0,0)
         end
     end
     
@@ -449,8 +449,8 @@ function mshto3dg(m::HighOrderMesh{D,G,P,T}) where {D,G,P,T}
     t = Cint.(m1.el .- 1)
 
     zixmap(i) = i>0 ? i-1 : i
-    t2t = [ Cint(zixmap(nb[1])) for nb in m1.nbor ]
-    t2n = [ Cint(nb[2] - 1) for nb in m1.nbor ]
+    t2t = [ Cint(zixmap(nb[1])) for nb in m1.nb ]
+    t2n = [ Cint(nb[2] - 1) for nb in m1.nb ]
     # TODO: Add neighbor face permutation in t2n
 
     if eltype == 0 # Simplex

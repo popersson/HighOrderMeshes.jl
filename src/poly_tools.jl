@@ -2,11 +2,12 @@
 ## Polynomials
 
 """
-    legendre_poly_neg1pos1(x::AbstractVector{T}, p::Int; diff=false) where T
+    legendre_poly(x::AbstractVector{T}, p::Int; diff=false) where T
 
-TBW
+Legendre polynomials L_p(x) on [-1,1], vectorized over evaluation points in x.
+Optional output derivative L'_p(x).
 """
-function legendre_poly_neg1pos1(x::AbstractVector{T}, p::Int; diff=false) where T
+function legendre_poly(x::AbstractVector{T}, p::Int; diff=false) where T
     # Legendre on [-1,1]
     y = ones(T, length(x), p+1)
     y[:,2] .= x
@@ -24,13 +25,13 @@ function legendre_poly_neg1pos1(x::AbstractVector{T}, p::Int; diff=false) where 
 end
 
 """
-    legendre_poly(x::AbstractVector{T}, p::Int; diff=false) where T
+    legendre01_poly(x::AbstractVector{T}, p::Int; diff=false) where T
 
-TBW
+Shifted Legendre polynomials on [0,1].
 """
-function legendre_poly(x::AbstractVector{T}, p::Int; diff=false) where T
+function legendre01_poly(x::AbstractVector{T}, p::Int; diff=false) where T
     # Legendre on [0,1]
-    ys = legendre_poly_neg1pos1(2x .- 1, p; diff=diff)
+    ys = legendre_poly(2x .- 1, p; diff=diff)
     if diff
         ys[2] .*= 2
     end
@@ -38,11 +39,11 @@ function legendre_poly(x::AbstractVector{T}, p::Int; diff=false) where T
 end
 
 """
-    multivar_legendre_poly(x::AbstractArray{T}, p::Int; gradient=false) where T
+    multivar_legendre01_poly(x::AbstractArray{T}, p::Int; gradient=false) where T
 
-TBW
+Multivariate Shifted Legendre polynomials of degree p on [0,1]^D where D = size(x,2).
 """
-function multivar_legendre_poly(x::AbstractArray{T}, p::Int; gradient=false) where T
+function multivar_legendre01_poly(x::AbstractArray{T}, p::Int; gradient=false) where T
     D = size(x,2)
     ix = [ i for i in Iterators.product(fill(1:p+1,D)...)][:]
     function make_outer_prod!(Ls, P)
@@ -57,12 +58,12 @@ function multivar_legendre_poly(x::AbstractArray{T}, p::Int; gradient=false) whe
         end
     end
 
-    Ls = [ legendre_poly(xx, p) for xx in eachcol(x) ]
+    Ls = [ legendre01_poly(xx, p) for xx in eachcol(x) ]
     if !gradient
         P = zeros(T, size(x,1), length(ix))
         make_outer_prod!(Ls, P)
     else
-        dLs = [ legendre_poly(xx, p, diff=true)[2] for xx in eachcol(x) ]
+        dLs = [ legendre01_poly(xx, p, diff=true)[2] for xx in eachcol(x) ]
         P = zeros(T, size(x,1), length(ix), D)
         for k = 1:D
             cLs = [ i == k ? dLs[i] : Ls[i] for i = 1:D ]
@@ -76,7 +77,7 @@ end
 """
     multivar_monomial_poly(x::AbstractArray{T}, p::Int; gradient=false) where T
 
-TBW
+Multivariate monomials of degree p on R^D where D = size(x,2).
 """
 function multivar_monomial_poly(x::AbstractArray{T}, p::Int; gradient=false) where T
     isempty(x) && return [one(T);;]
@@ -105,7 +106,95 @@ end
 TBW
 """
 eval_poly(eg::Simplex, s, p; gradient=false) = multivar_monomial_poly(s, p; gradient=gradient)
-eval_poly(eg::Block, s, p; gradient=false) = multivar_legendre_poly(s, p; gradient=gradient)
+eval_poly(eg::Block, s, p; gradient=false) = multivar_legendre01_poly(s, p; gradient=gradient)
+
+###########################################################################
+## 1D Quadrature
+
+function gauss_legendre_nodes(n::Int; T::Type=Float64)
+    x = [ cos(T(π) / 4n * (4k - 2)) for k = n:-1:1 ]
+    for it = 1:100
+        P,dP = legendre_poly(x, n, diff=true)
+        xold = copy(x)
+        @. x = xold - P[:,end] / dP[:,end]
+        if maximum(abs.(x - xold)) < 2*eps(T)
+            return x
+        end
+    end
+    throw("No convergence in Gauss-Legendre Newton iterations")
+end
+
+gauss_legendre01_nodes(n::Int; T::Type=Float64) = ( gauss_legendre_nodes(n, T=T) .+ 1) ./ 2
+
+"""
+    gauss_legendre_quadrature(n; T::Type=Float64)
+
+Gauss-Legendre quadrature on [-1,1] with n points.
+Degree of Precision = 2n - 1
+
+Example usage:
+```julia
+# Compute integral(x^4, x=[-1,1]) = 2/5
+# n = 3 => DoP = 5 => Exact
+x,w = gauss_legendre_quadrature(3)
+w' * x.^4
+```
+"""
+function gauss_legendre_quadrature(n::Int; T::Type=Float64)
+    # Degree of precision = 2n - 1
+    x = gauss_legendre_nodes(n, T=T)
+    P,dP = legendre_poly(x, n, diff=true)
+    w = @. 2 / (1 - x^2) / dP[:,end]^2
+    return x,w
+end
+
+function gauss_legendre01_quadrature(n::Int; T::Type=Float64)
+    x,w = gauss_legendre_quadrature(n, T=T)
+    (x .+ 1) ./ 2, w ./ 2
+end
+
+function gauss_lobatto_nodes(n::Int; T::Type=Float64)
+    n1 = n - 1
+    x = @. cos(pi*((n1:-1:0)/T(n1)))
+    for it = 1:100
+        P = legendre_poly(x,n1)
+        xold = copy(x)
+        x = @. xold - (x * P[:,end] - P[:,end-1]) / ( (n1+1)*P[:,end] )
+        if maximum(abs.(x - xold)) < 2*eps(T)
+            return x
+        end
+    end
+    throw("No convergence in Gauss-Lobatto Newton iterations")
+end
+
+gauss_lobatto01_nodes(n::Int; T::Type=Float64) = ( gauss_lobatto_nodes(n, T=T) .+ 1) ./ 2
+
+"""
+    gauss_lobatto_quadrature(n; T::Type=Float64)
+
+Gauss-Lobatto quadrature on [-1,1] with n points.
+Degree of Precision = 2n - 3
+
+Example usage:
+```julia
+# Compute integral(x^4, x=[-1,1]) = 2/5
+# n = 4 => DoP = 5 => Exact
+x,w = gauss_lobatto_quadrature(4)
+w' * x.^4
+```
+"""
+function gauss_lobatto_quadrature(n::Int; T::Type=Float64)
+    # Degree of precision = 2n - 3
+    x = gauss_lobatto_nodes(n, T=T)
+    P = legendre_poly(x, n-1)
+    w = @. 2 / ((n-1) * n * P[:,end]^2)
+    return x, w
+end
+
+function gauss_lobatto01_quadrature(n::Int; T::Type=Float64)
+    x,w = gauss_lobatto_quadrature(n, T=T)
+    (x .+ 1) ./ 2, w ./ 2
+end
 
 ###########################################################################
 ## Nodes
@@ -142,3 +231,23 @@ function find_elgeom(D, P, nnodes)
         error("Cannot determine element shape")
     end
 end
+
+###########################################################################
+## General Quadrature
+
+quadrature(eg::ElementGeometry, p) = throw("Quadrature not implemented")
+
+quadrature(eg::Simplex{D}, p) where D = simplex_quadrature(SimplexQuadRule{D,p}())
+
+function quadrature(eg::Block{D}, p; T::Type=Float64) where D
+    ξ0,w0 = gauss_legendre01_quadrature(p, T=T)
+    
+    ξ = ref_nodes(eg, ξ0)
+    w = w0
+    for d = 2:D
+        w = w .* w0'
+        w = w[:]
+    end
+    ξ,w
+end
+

@@ -4,7 +4,7 @@ struct HighOrderMesh{D,G,P,T}
     fe::FiniteElement{D,G,P,T}
     x::Matrix{T}
     el::Matrix{Int}
-    nbor::Matrix{NeighborData} 
+    nb::Matrix{NeighborData} 
 end
 
 """
@@ -19,8 +19,8 @@ function HighOrderMesh(fe::FiniteElement{D,G,P,T},
                        x::AbstractMatrix{T},
                        el::AbstractMatrix{Int};
                        bndexpr=p->[0]) where {D,G,P,T}
-    nbor = el2nbor(el[corner_nodes(fe),:], G())
-    m = HighOrderMesh{D,G,P,T}(fe, x, el, nbor)
+    nb = el2nb(el[corner_nodes(fe),:], G())
+    m = HighOrderMesh{D,G,P,T}(fe, x, el, nb)
     set_bnd_numbers!(m, bndexpr)
     m
 end
@@ -28,7 +28,7 @@ end
 function HighOrderMesh(x::Matrix{T}, el::AbstractMatrix{Int}; kwargs...) where {T}
     dim, nv = size(x,2), size(el,1)
     eg = find_elgeom(dim, nv)
-    nbor = el2nbor(el, eg)
+    nb = el2nb(el, eg)
     fe = FiniteElement(eg, 1, T)
     HighOrderMesh(fe, x, el; kwargs...)
 end
@@ -45,7 +45,7 @@ function Base.show(io::IO, m::HighOrderMesh)
     print(io, "$(size(m.el,2)) $(name(m.fe)) elements.")
 end
 
-function el2nbor(el, eg)
+function el2nb(el, eg)
     # TODO: Implement neighbor face permutation
     map = facemap(eg)
     nv,nel = size(el)
@@ -87,7 +87,7 @@ function set_ref_nodes(m::HighOrderMesh{D,G,P,T}, newfe::FiniteElement) where {D
     newxdg = reshape(Pfe * (m.fe.shapefcn_coeff[D] * reshape(xdg, nv, D*nel)), newns*nel, D)
     neweldg = reshape(1:newns*nel, newns, nel)
     newx,newel = unique_mesh_nodes(newxdg, neweldg)
-    HighOrderMesh{D,G,newp,T}(newfe, newx, newel, m.nbor)
+    HighOrderMesh{D,G,newp,T}(newfe, newx, newel, m.nb)
 end
 
 set_ref_nodes(m::HighOrderMesh{D,G,P,T}, newsline::Vector{T}) where {D,G,P,T} =
@@ -97,4 +97,4 @@ set_degree(m::HighOrderMesh{D,G,P,T}, newp::Int) where {D,G,P,T} =
     set_ref_nodes(m, FiniteElement(G(), newp, T))
 
 set_lobatto_nodes(m::HighOrderMesh{D,Block{D},P,T}) where {D,P,T} =
-    set_ref_nodes(m, gauss_lobatto_nodes(P+1))
+    set_ref_nodes(m, gauss_lobatto01_nodes(P+1))

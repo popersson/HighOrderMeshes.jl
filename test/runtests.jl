@@ -7,17 +7,23 @@ module TestCore
     using Test
     using HighOrderMeshes
 
-    @testset "HighOrderMeshes.jl" begin
+    @testset verbose = true "Core HighOrderMeshes.jl" begin
+
+    @testset "Basic ex1mesh properties" begin
         for eg in (Block{2}(), Simplex{2}()), nref in 1:3
             @test porder(ex1mesh(nref=nref, eg=eg)) == 3
         end
+    end
         
+    @testset "Basic mshsquare properties" begin
         for xtype in (Float64, Float32, Rational{Int})
             m = mshsquare(5, 3; T=xtype)
             @test size(m.el) == (4,15)
             @test eltype(m.x) == xtype
         end
+    end
         
+    @testset "gmsh file import" begin
         rootdir = pkgdir(HighOrderMeshes)
         for (filename,eg) in (("circle_tris.msh", Simplex{2}()),
                               ("square_tris.msh", Simplex{2}()),
@@ -27,7 +33,10 @@ module TestCore
             m = gmsh2msh(fullname)
             @test elgeom(m) == eg
         end
+    end
         
+    @testset "CG Poisson (experimental)" begin
+        include(joinpath(@__DIR__, "../examples/fem/assemble_utils.jl"))
         # Solve and plot -∇²u = 1 with zero Dirichlet boundary conditions on the unit circle
         for n = 1:4, porder = 1:4
             m = mshcircle(n, p=porder)
@@ -35,26 +44,29 @@ module TestCore
             u,A,f = cg_poisson(m, pc, xy->1)
             uexact = (1 .- sum(m.x.^2,dims=2)) / 4
             error = maximum(abs.(u[:] - uexact[:]))
-            #@show (n,porder,error)
-            @test error < 5e-2   # TODO: Fix bugs and make this tolerance n/p dependent
-        end
-        
-        @testset "VTK Export" begin
-            m = ex1mesh()
-            u = ex1solution(m)
-            
-            mktempdir() do tmpdir
-                filename = joinpath(tmpdir, "ex1.vtk")
-                vtkwrite(filename, m, u)
-                
-                @test isfile(filename)
-                @test filesize(filename) > 0
-                header = open(readline, filename)
-                @test startswith(header, "# vtk")
-            end
+            # @show (n,porder,error)
+            # Assume O(h^{p+1}) convergence, with fitted constant (upper bound)
+            error_bound = (0.2 / n) ^ (porder + 1) 
+            @test error < error_bound
         end
     end
-    
+
+    @testset "VTK Export" begin
+        m = ex1mesh()
+        u = ex1solution(m)
+        
+        mktempdir() do tmpdir
+            filename = joinpath(tmpdir, "ex1.vtk")
+            vtkwrite(filename, m, u)
+            
+            @test isfile(filename)
+            @test filesize(filename) > 0
+            header = open(readline, filename)
+            @test startswith(header, "# vtk")
+        end
+    end
+
+    end
 end
 
 # -------------------------------------------------------------------

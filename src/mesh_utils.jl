@@ -7,7 +7,7 @@ filevars = ("s1","x","el","nbor")
 
 function savemesh(fname, m::HighOrderMesh)
     h5open(fname, "w") do fid
-        dat = (m.fe.ref_nodes[1][:], m.x, m.el, m.nbor)
+        dat = (m.fe.ref_nodes[1][:], m.x, m.el, m.nb)
         for i in eachindex(filevars)
             fid[filevars[i], compress=9] = dat[i]
         end
@@ -15,15 +15,15 @@ function savemesh(fname, m::HighOrderMesh)
 end
 
 function loadmesh(fname)
-    s1,x,el,nbor = h5open(fname, "r") do fid
+    s1,x,el,nb = h5open(fname, "r") do fid
         read.([fid], filevars)
     end
-    nbor = NeighborData.(nbor)
+    nb = NeighborData.(nb)
     D = size(x,2)
     P = length(s1) - 1
     G = find_elgeom(D, P, size(el,1))
     fe = FiniteElement(G, s1)
-    m = HighOrderMesh(fe, x, el, nbor)
+    m = HighOrderMesh(fe, x, el, nb)
 end
 
 ######################
@@ -106,11 +106,6 @@ function uniref(m::HighOrderMesh, nref)
     m
 end
 
-function uniref_prep(x, el, edgemap)
-
-    newx, mapmid
-end    
-
 function uniref(m::HighOrderMesh{2,G,1,T}) where {G,T}
     emap = edgemap(G())
     eledges = sort.([ cel[edge] for edge = eachcol(emap), cel = eachcol(m.el) ])
@@ -189,8 +184,8 @@ mkface2nodes(fe::FiniteElement{D,G,P,T}) where {D,G,P,T} =
 
 mkface2nodes(m::HighOrderMesh) = mkface2nodes(m.fe)
 
-function mkldgswitch(eg::Block{D}, nbor) where {D}
-    nf,nel = size(nbor)
+function mkldgswitch(eg::Block{D}, nb) where {D}
+    nf,nel = size(nb)
     sw = fill(-1, nf, nel)
 
     opposite_face(i) = i - iseven(i) + isodd(i)
@@ -205,7 +200,7 @@ function mkldgswitch(eg::Block{D}, nbor) where {D}
         dir = 1
         while true
             sw[j,iel] = dir
-            jel,k,_ = nbor[j,iel]
+            jel,k,_ = nb[j,iel]
             if jel > 0
                 sw[k,jel] = 1 - dir
                 iel = jel
@@ -231,16 +226,16 @@ function mkldgswitch(eg::Block{D}, nbor) where {D}
     return sw
 end
 
-mkldgswitch(m::HighOrderMesh) = mkldgswitch(elgeom(m), m.nbor)
+mkldgswitch(m::HighOrderMesh) = mkldgswitch(elgeom(m), m.nb)
 
 function boundary_nodes(m::HighOrderMesh, bndnbrs=nothing)
     f2n = mkface2nodes(m)
-    nf,nel = size(m.nbor)
+    nf,nel = size(m.nb)
     
     nodes = Int64[]
     for iel in 1:nel
         for j in 1:nf
-            jel,k,_ = m.nbor[j,iel]
+            jel,k,_ = m.nb[j,iel]
             if jel < 1 && (isnothing(bndnbrs) || -jel ∈ bndnbrs)
                 append!(nodes, m.el[f2n[:,j],iel])
             end
@@ -277,29 +272,29 @@ function align_with_ldgswitch!(m::HighOrderMesh{2,Block{2},P}, sw=nothing) where
     for iel = 1:size(m.el,2)
         cmap = mapcase[iel]
         m.el[:,iel] .= m.el[:,iel][ndmaps[cmap]]
-        cnbor = m.nbor[:,iel]
+        cnb = m.nb[:,iel]
         for j = 1:4
-            if cnbor[j][2] > 0
-                jel = cnbor[j][1]
-                cnbor[j] = (jel, ifcmaps[mapcase[jel]][cnbor[j][2]], 0 )
+            if cnb[j][2] > 0
+                jel = cnb[j][1]
+                cnb[j] = (jel, ifcmaps[mapcase[jel]][cnb[j][2]], 0 )
             end
         end
-        m.nbor[:,iel] = cnbor[fcmaps[cmap]]
+        m.nb[:,iel] = cnb[fcmaps[cmap]]
     end
 end
 
 function set_bnd_numbers!(m::HighOrderMesh, bndexpr)
-    nf,nel = size(m.nbor)
+    nf,nel = size(m.nb)
     f2n = mkface2nodes(m)
 
     scaling = maximum(abs.(m.x))
-    for iel in axes(m.nbor,2), j in axes(m.nbor,1)
-        if m.nbor[j,iel][1] < 1
+    for iel in axes(m.nb,2), j in axes(m.nb,1)
+        if m.nb[j,iel][1] < 1
             facex = m.x[m.el[f2n[:,j],iel],:]
             onbnd = hcat([ snap.(bndexpr(cx)) .== 0 for cx in eachrow(facex) ]...)
             bndnbr = findfirst(all(onbnd,dims=2)[:])
             isnothing(bndnbr) && throw("No boundary expression matching boundary face")
-            m.nbor[j,iel] = (-bndnbr,0,0)
+            m.nb[j,iel] = (-bndnbr,0,0)
         end
     end
 end
@@ -316,21 +311,21 @@ Example:
 """
 function set_bnd_periodic!(m::HighOrderMesh{D,G,P,T}, bnds, dir) where {D,G,P,T}
     # TODO: Neighbor face permutation
-    nf,nel = size(m.nbor)
+    nf,nel = size(m.nb)
     f2n = mkface2nodes(m)
 
     match_coords = (1:D) .≠ dir
     scaling = maximum(abs.(m.x))
     dd = Dict{Matrix{T}, NTuple{2,Int}}()
-    for iel in axes(m.nbor,2), j in axes(m.nbor,1)
-        if -m.nbor[j,iel][1] ∈ bnds
+    for iel in axes(m.nb,2), j in axes(m.nb,1)
+        if -m.nb[j,iel][1] ∈ bnds
             facex = m.x[m.el[f2n[:,j],iel],:]
             key = snap.(facex[:,match_coords])
             key = sortslices(key, dims=1)
             if haskey(dd, key)
                 iel0,j0 = pop!(dd, key)
-                m.nbor[j,iel] = (iel0,j0,0)
-                m.nbor[j0,iel0] = (iel,j,0)
+                m.nb[j,iel] = (iel0,j0,0)
+                m.nb[j0,iel0] = (iel,j,0)
             else
                 dd[key] = (iel,j)
             end

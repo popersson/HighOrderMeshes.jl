@@ -10,10 +10,10 @@ function viz_mesh(m::HighOrderMesh{2,G,P,T};
     f2n = mkface2nodes(m.fe)
     xdg = dg_nodes(m)
     order = plot_face_order(G())
-    nf, nel = size(m.nbor)
+    nf, nel = size(m.nb)
     curves = fill(zeros(F,0,0), nf, nel)
     for iel = 1:nel, iface = 1:nf
-        jel, jface, jperm = m.nbor[iface, iel]
+        jel, jface, jperm = m.nb[iface, iel]
 
         is_main_side = true # iel < jel || jel < 1  # removed to allow for periodic boundaries
         if is_main_side
@@ -65,7 +65,7 @@ function viz_mesh(m::HighOrderMesh{2,G,P,T};
             iface > 1 && (cxy = cxy[2:end, :])
             push!(elem_lines, cxy)
 
-            jel, jface, jperm = m.nbor[iface, iel]
+            jel, jface, jperm = m.nb[iface, iel]
             0 < jel < iel && continue
 
             cxy = curves[iface, iel]
