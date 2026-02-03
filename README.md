@@ -1,8 +1,8 @@
 # HighOrderMeshes.jl
 
 ![CI](https://github.com/popersson/HighOrderMeshes.jl/actions/workflows/CI.yml/badge.svg)
-Tools for high-order unstructured meshes and finite element methods.
 [![codecov](https://codecov.io/gh/popersson/HighOrderMeshes.jl/graph/badge.svg?token=FLXZ69IRUK)](https://codecov.io/gh/popersson/HighOrderMeshes.jl)
+Tools for high-order unstructured meshes and finite element methods.
 
 ## Installation
 
