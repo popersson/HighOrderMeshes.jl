@@ -23,6 +23,22 @@ module TestCore
         end
     end
         
+    @testset "IO - .hom format" begin
+        for eg in (Block{2}(), Simplex{2}()), nref in 0:1
+            m = ex1mesh(nref=nref, eg=eg)
+    
+            mktempdir() do tmpdir
+                tmp_path = joinpath(tmpdir, "test_mesh.hom")
+                
+                savemesh(tmp_path, m)
+                m2 = loadmesh(tmp_path)
+                
+                @test m.x == m2.x && m.el == m2.el && m.nb == m2.nb &&
+                    m.fe.ref_nodes[1] == m2.fe.ref_nodes[1]
+            end
+        end
+    end
+        
     @testset "gmsh file import" begin
         rootdir = pkgdir(HighOrderMeshes)
         for (filename,eg) in (("circle_tris.msh", Simplex{2}()),

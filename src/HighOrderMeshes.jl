@@ -1,7 +1,5 @@
 module HighOrderMeshes
 
-using HDF5
-
 export ElementGeometry, Simplex, Block, dim, name, nvertices, nfaces, nedges, facemap, edgemap, subgeom
 
 export legendre_poly, legendre01_poly, multivar_legendre01_poly, multivar_monomial_poly, eval_poly
@@ -14,10 +12,11 @@ export eval_shapefcns, eval_fcn
 
 export HighOrderMesh, dg_nodes, elgeom, dim, porder, el2nb, set_ref_nodes, set_degree, set_lobatto_nodes
 
-export write_matrix, read_matrix!, savemesh, loadmesh, savemeshtxt, loadmeshtxt, uniref, mkface2nodes, mkldgswitch, boundary_nodes, align_with_ldgswitch!, set_bnd_numbers!, set_bnd_periodic!, unique_mesh_nodes
+export uniref, mkface2nodes, mkldgswitch, boundary_nodes, align_with_ldgswitch!, set_bnd_numbers!, set_bnd_periodic!, unique_mesh_nodes
 
 export blockmesh_hypercube, mshhypercube, mshcube, mshsquare, mshline, mshcircle
 export viz_mesh, viz_solution, mesh_function_type
+export savemesh, loadmesh, savemeshtxt, loadmeshtxt
 export mshto3dg, gmsh2msh, rungmsh2msh, gmshstr2msh, vtkwrite
 
 include("element_geometry.jl")
@@ -29,6 +28,7 @@ include("mesh_utils.jl")
 include("basic_meshes.jl")
 include("post_processing.jl")
 include("converters.jl")
+include("io.jl")
 include("../examples/sample_meshes.jl")
 
 end

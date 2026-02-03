@@ -2,6 +2,8 @@ abstract type ElementGeometry{D} end
 struct Simplex{D} <: ElementGeometry{D} end
 struct Block{D} <: ElementGeometry{D} end
 
+const geometry_types = [Simplex, Block]
+
 dim(::ElementGeometry{D}) where {D} = D::Int
 
 name(::Simplex{D}) where {D} = D > 3 ? "$(D)D simplex" :
