@@ -21,12 +21,14 @@ jobs:
       fail-fast: false
       matrix:
         version:
-          - '1.10' # Compat version (Safety)
-          - '1'    # Latest version (Speed/Features)
+          - '1' # Just the latest stable version
         os:
           - ubuntu-latest
+          - windows-latest
+          - macos-latest
         arch:
           - x64
+
     steps:
       - uses: actions/checkout@v6
       

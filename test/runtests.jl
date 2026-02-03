@@ -36,7 +36,7 @@ module TestCore
     end
         
     @testset "CG Poisson (experimental)" begin
-        include(joinpath(@__DIR__, "../examples/fem/assemble_utils.jl"))
+        include(joinpath(@__DIR__, "..", "examples", "fem", "assemble_utils.jl"))
         # Solve and plot -∇²u = 1 with zero Dirichlet boundary conditions on the unit circle
         for n = 1:4, porder = 1:4
             m = mshcircle(n, p=porder)

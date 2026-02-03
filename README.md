@@ -1,31 +1,54 @@
-# HighOrderMeshes
+# HighOrderMeshes.jl
 
-[![Build Status](https://github.com/popersson/HighOrderMeshes.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/popersson/HighOrderMeshes.jl/actions/workflows/CI.yml?query=branch%3Amain)
+![CI](https://github.com/popersson/HighOrderMeshes.jl/actions/workflows/CI.yml/badge.svg)
+Tools for high-order unstructured meshes and finite element methods.
 
-## Installation and Versions
+## Installation
 
-Since this package is in active development, the `main` branch may contain breaking changes.
+This package is not yet in the General Registry. You can install the latest version directly from GitHub:
 
-### For old stable version (2024-2025 Legacy Code)
-
-If you are working on a project that uses the original interface (from 2024-2025), you should use the stable **v0.1.0** tag. To switch to this version, run the following commands in your terminal inside the project folder:
-
-```bash
-# Switch to the stable v0.1.0 version
-git checkout v0.1.0
-
-# Update the Julia environment
-julia --project -e 'using Pkg; Pkg.instantiate()'
-
+```julia
+import Pkg
+Pkg.add(url="https://github.com/popersson/HighOrderMeshes.jl")
 ```
 
-> **Note:** When you run the checkout command, Git will mention a "detached HEAD" state. This is normal and simply means you are locked to that specific point in time.
+> **Warning:** Since this package is in active development, the `main` branch may contain breaking changes.
 
-### Current Development
+### Legacy Version (2024-2025 Code)
 
-To stay on the latest version with all the newest features, ensure you are on the `main` branch:
+If you need the original interface (v0.1.0), install it by specifying the tag:
 
-```bash
-git checkout main
+```julia
+Pkg.add(url="https://github.com/popersson/HighOrderMeshes.jl", rev="v0.1.0")
+```
+
+## Quick Start
+
+### Visualization (Makie.jl)
+
+We recommend **Makie.jl** for visualization.
+
+```julia
+using HighOrderMeshes
+using GLMakie # Or CairoMakie for non-interactive plots
+
+msh = ex1mesh()
+plot(msh)           # Plot high-order mesh
+```
+
+```julia
+u = ex1solution(msh)
+plot(msh, u)        # Plot sample solution
+```
+
+### Visualization (Plots.jl)
+
+If you prefer Plots.jl, you must install and load `TriplotRecipes.jl` for the plotting extension to activate.
+
+```julia
+using HighOrderMeshes
+using Plots, TriplotRecipes
+
+plot(ex1mesh())
 
 ```
