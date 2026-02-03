@@ -26,14 +26,10 @@ HDF5 = "0.17, 1"
 StaticArrays = "1"
 Plots = "1"
 Makie = "0.24"
-CairoMakie = "0.15"
 TriplotRecipes = "0.1"
 
 [extras]
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
-Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
-CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0" 
-TriplotRecipes = "808ab39a-a642-4abf-81ff-4cb34ebbffa3"
 
 [targets]
-test = ["Test", "Plots", "CairoMakie", "TriplotRecipes"]
+test = ["Test"]

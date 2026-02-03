@@ -1,5 +1,7 @@
 module HighOrderMeshes
 
+using HDF5
+
 export ElementGeometry, Simplex, Block, dim, name, nvertices, nfaces, nedges, facemap, edgemap, subgeom
 
 export legendre_poly, legendre01_poly, multivar_legendre01_poly, multivar_monomial_poly, eval_poly

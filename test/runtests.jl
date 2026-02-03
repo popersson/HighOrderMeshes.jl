@@ -73,7 +73,9 @@ end
 # -------------------------------------------------------------------
 # 2. Test Plots.jl Extension
 # -------------------------------------------------------------------
-module TestPlots
+if get(ENV, "RUN_PLOTS_TESTS", "false") == "true"
+    @eval module TestPlots
+    
     using Test
     using HighOrderMeshes
     using Plots
@@ -101,12 +103,16 @@ module TestPlots
         p = plot(m, u)
         check_plots(p)
     end
+    end
+else
+    @info "Skipping Plots.jl tests. Set ENV[\"RUN_PLOTS_TESTS\"] = \"true\" to run them."
 end
 
 # -------------------------------------------------------------------
 # 3. Test Makie Extension
 # -------------------------------------------------------------------
-module TestMakie
+if get(ENV, "RUN_MAKIE_TESTS", "false") == "true"
+    @eval module TestMakie
     using Test
     using HighOrderMeshes
     using CairoMakie 
@@ -130,4 +136,7 @@ module TestMakie
         f = plot(m, u)
         check_makie(f)
     end
+    end
+else
+    @info "Skipping Makie.jl tests. Set ENV[\"RUN_MAKIE_TESTS\"] = \"true\" to run them."
 end

@@ -15,7 +15,7 @@ function parse_gmsh(fname)
     str = readline(fid)
     if str != "2.2 0 8"
         close(fid)
-        error("MeshFormat must be \"2.2 0 8\"")
+        error("MeshFormat must be \"2.2 0 8\", got \"$str\"")
     end
     readuntil(fid, "\$EndMeshFormat\n")
 
