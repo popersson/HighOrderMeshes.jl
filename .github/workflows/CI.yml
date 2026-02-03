@@ -21,7 +21,11 @@ jobs:
       fail-fast: false
       matrix:
         version:
-          - '1' # Just the latest stable version
+          - '1'
+        os:
+          - ubuntu-latest
+          - windows-latest
+          - macos-latest
         include:
           - os: ubuntu-latest
             arch: x64
