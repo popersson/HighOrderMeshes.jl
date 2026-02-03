@@ -29,14 +29,15 @@ module TestCore
                               ("square_tris.msh", Simplex{2}()),
                               ("circle_quads.msh", Block{2}()),
                               ("square_quads.msh", Block{2}()))
-            fullname = joinpath(rootdir, "examples/gmsh", filename)
+            fullname = joinpath(rootdir, "examples", "gmsh", filename)
             m = gmsh2msh(fullname)
             @test elgeom(m) == eg
         end
     end
         
     @testset "CG Poisson (experimental)" begin
-        include(joinpath(@__DIR__, "..", "examples", "fem", "assemble_utils.jl"))
+        rootdir = pkgdir(HighOrderMeshes)
+        include(joinpath(rootdir, "examples", "fem", "assemble_utils.jl"))
         # Solve and plot -∇²u = 1 with zero Dirichlet boundary conditions on the unit circle
         for n = 1:4, porder = 1:4
             m = mshcircle(n, p=porder)
