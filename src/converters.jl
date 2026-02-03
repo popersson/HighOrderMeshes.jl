@@ -11,13 +11,15 @@ function parse_gmsh(fname)
 
     gmsh = Dict()
     
-    readuntil(fid, "\$MeshFormat\n")
+    readuntil(fid, "\$MeshFormat")
+    readline(fid)
     str = readline(fid)
     if str != "2.2 0 8"
         close(fid)
         error("MeshFormat must be \"2.2 0 8\", got \"$str\"")
     end
-    readuntil(fid, "\$EndMeshFormat\n")
+    readuntil(fid, "\$EndMeshFormat")
+    readline(fid)    
 
     next_section = readline(fid)
     if next_section == "\$PhysicalNames"
@@ -28,7 +30,8 @@ function parse_gmsh(fname)
             push!(names, (parse(Int, cname[1]), parse(Int, cname[2]), cname[3]))
         end
         gmsh[:PhysicalNames] = names
-        readuntil(fid, "\$EndPhysicalNames\n")
+        readuntil(fid, "\$EndPhysicalNames")
+        readline(fid)
         next_section = readline(fid)
     else
         gmsh[:PhysicalNames] = []
@@ -50,7 +53,8 @@ function parse_gmsh(fname)
     end
     gmsh[:Nodes] = p
 
-    readuntil(fid, "\$Elements\n")
+    readuntil(fid, "\$Elements")
+    readline(fid)
     ne = parse(Int, readline(fid))
     e = Dict(:type=>Int[], :tags=>Vector{Int}[], :node_numbers=>zeros(Int,0,0))
     nn = []
