@@ -436,7 +436,7 @@ function mshto3dg(m::HighOrderMesh{D,G,P,T}) where {D,G,P,T}
             throw("3DG conversion only supported for standard simplex node order. Consider using set_degree(m, porder(m))")
         end
     elseif eltype == 1 # Block
-        s0 = gauss_lobatto_nodes(P+1, T=T)
+        s0 = gauss_lobatto01_nodes(P+1, T=T)
         if !isapprox(s0, ref_nodes(m.fe,1))
             throw("3DG only supports quad meshes with Lobatto nodes. Consider using set_lobatto_nodes")
         end

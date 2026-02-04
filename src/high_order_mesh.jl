@@ -26,6 +26,7 @@ function HighOrderMesh(fe::FiniteElement{D,G,P,T},
 end
 
 function HighOrderMesh(x::Matrix{T}, el::AbstractMatrix{Int}; kwargs...) where {T}
+    # Currently only porder == 1
     dim, nv = size(x,2), size(el,1)
     eg = find_elgeom(dim, nv)
     nb = el2nb(el, eg)

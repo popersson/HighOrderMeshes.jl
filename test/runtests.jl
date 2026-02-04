@@ -4,10 +4,10 @@ using Test
 # 1. Core Library Tests
 # -------------------------------------------------------------------
 module TestCore
-    using Test
-    using HighOrderMeshes
+using Test
+using HighOrderMeshes
 
-    @testset verbose = true "Core HighOrderMeshes.jl" begin
+@testset verbose = true "Core HighOrderMeshes.jl" begin
 
     @testset "Basic ex1mesh properties" begin
         for eg in (Block{2}(), Simplex{2}()), nref in 1:3
@@ -23,7 +23,7 @@ module TestCore
         end
     end
         
-    @testset "IO - .hom format" begin
+    @testset "IO - .hom and .txt formats" begin
         for eg in (Block{2}(), Simplex{2}()), nref in 0:1
             m = ex1mesh(nref=nref, eg=eg)
     
@@ -35,6 +35,16 @@ module TestCore
                 
                 @test m.x == m2.x && m.el == m2.el && m.nb == m2.nb &&
                     m.fe.ref_nodes[1] == m2.fe.ref_nodes[1]
+            end
+            
+            mktempdir() do tmpdir
+                m = set_degree(m, 1) # txt-format only supports p=1 for now
+                tmp_path = joinpath(tmpdir, "test_mesh.txt")
+                
+                savemeshtxt(tmp_path, m)
+                m2 = loadmeshtxt(tmp_path)
+                
+                @test m.x == m2.x && m.el == m2.el
             end
         end
     end
@@ -68,22 +78,92 @@ module TestCore
         end
     end
 
-    @testset "VTK Export" begin
-        m = ex1mesh()
-        u = ex1solution(m)
+    @testset "Converters / export" begin
+        ## VTK
+        for eg in (Simplex{2}(), Block{2}())
+            m = ex1mesh(eg=eg)
         
-        mktempdir() do tmpdir
-            filename = joinpath(tmpdir, "ex1.vtk")
-            vtkwrite(filename, m, u)
+            mktempdir() do tmpdir
+                u = ex1solution(m)
+                filename = joinpath(tmpdir, "ex1.vtk")
+                vtkwrite(filename, m, u)
+                
+                @test isfile(filename)
+                @test filesize(filename) > 0
+                header = open(readline, filename)
+                @test startswith(header, "# vtk")
+            end
             
-            @test isfile(filename)
-            @test filesize(filename) > 0
-            header = open(readline, filename)
-            @test startswith(header, "# vtk")
+            mktempdir() do tmpdir
+                u = hcat(m.x[:,1].^2, m.x[:,2], -m.x[:,1])
+                filename = joinpath(tmpdir, "ex1.vtk")
+                vtkwrite(filename, m, u, umap=[1, 2:3])
+                
+                @test isfile(filename)
+                @test filesize(filename) > 0
+                header = open(readline, filename)
+                @test startswith(header, "# vtk")
+            end
+        end
+        
+        ## 3DG export
+        for eg in (Simplex{2}(), Block{2}())
+            m = ex1mesh(eg=eg)
+            if eg == Block{2}()
+                m = set_lobatto_nodes(m)
+            end
+
+            flds = mshto3dg(m)
+            @test size(flds.p1)[[1,3]] == size(m.el)
         end
     end
 
+    @testset "Mesh utilities" begin
+        msh = mshsquare(5)
+        set_bnd_periodic!(msh, (1,2), 1)    # Periodic left/right (x-direction)
+        set_bnd_periodic!(msh, (3,4), 2)    # Periodic bottom/top (y-direction)
+        @test minimum(first.(msh.nb)[:]) == 1  # No actual boundaries
+
+        msh = ex1mesh(nref=1, eg=Block{2}())
+        align_with_ldgswitch!(msh)
+        sw = mkldgswitch(msh)
+        @test all(sw[1,:] .== 1 .&& sw[3,:] .== 1)
     end
+
+    @testset "Polynomials" begin
+        # Quadrature
+        maxdegree = (30,22,15)
+        for D = 1:3
+            for porder = 1:maxdegree[D]
+                for (eg,exact) in ((Simplex{D}(), 1/(D+1)),
+                                   (Block{D}(), 0.5))
+                    gx,gw = quadrature(eg, porder)
+                    # Trivial test int(x)
+                    @test gw' * gx[:,1] ≈ exact
+                end
+            end
+        end
+
+        
+        # Compute integral(x^4, x=[-1,1]) = 2/5
+        # n = 3 => DoP = 5 => Exact
+        x,w = gauss_legendre_quadrature(3)
+        @test w' * x.^4 ≈ 2/5
+
+        x,w = gauss_lobatto_quadrature(4)
+        @test w' * x.^4 ≈ 2/5
+        
+        # Compute integral(x^4, x=[0,1]) = 1/5
+        # n = 3 => DoP = 5 => Exact
+        x,w = gauss_legendre01_quadrature(3)
+        @test w' * x.^4 ≈ 1/5
+
+        x,w = gauss_lobatto01_quadrature(4)
+        @test w' * x.^4 ≈ 1/5
+        
+    end
+        
+end
 end
 
 # -------------------------------------------------------------------
@@ -114,10 +194,23 @@ if get(ENV, "RUN_PLOTS_TESTS", "false") == "true"
             end
         end
 
-        p = plot(m)
-        check_plots(p)
-        p = plot(m, u)
-        check_plots(p)
+        f = plot(m, labels=:nodes)
+        check_plots(f)
+        f = plot(m, labels=:elements)
+        check_plots(f)
+        f = plot(m, u)
+        check_plots(f)
+        
+        f = plot(m, u, mesh_edges=true)
+        check_plots(f)
+
+        f = plot(m, m.x, contours=10)
+        check_plots(f)
+
+        m1 = mshline(5)
+        m1 = set_degree(m1, 3)
+        f = plot(m1, m1.x)
+        f = check_plots(f)
     end
     end
 else
@@ -147,10 +240,20 @@ if get(ENV, "RUN_MAKIE_TESTS", "false") == "true"
             end
         end
 
-        f = plot(m)
+        f = plot(m, labels=:nodes)
+        check_makie(f)
+        f = plot(m, labels=:elements)
         check_makie(f)
         f = plot(m, u)
         check_makie(f)
+        
+        f = plot(m, u, mesh_edges=true)
+        check_makie(f)
+
+        m1 = mshline(5)
+        m1 = set_degree(m1, 3)
+        f = plot(m1, m1.x)
+        f = check_makie(f)
     end
     end
 else

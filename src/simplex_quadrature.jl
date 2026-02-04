@@ -3,9 +3,9 @@ struct SimplexQuadRule{D,P} end
 simplex_quadrature(::SimplexQuadRule{D,P}) where {D,P} = throw("Simplex quadrature not implemented for D=$D, P=$P")
 
 simplex_quadrature(::SimplexQuadRule{1,1}) = (
-0.5
+[0.5]
 ,
-1
+[1.0]
 )
 simplex_quadrature(::SimplexQuadRule{1,2}) = (
 [0.211324865405187;0.788675134594813]
@@ -155,7 +155,7 @@ simplex_quadrature(::SimplexQuadRule{1,30}) = (
 simplex_quadrature(::SimplexQuadRule{2,1}) = (
 [0.333333333333333 0.333333333333333]
 ,
-1
+[1.0]
 )
 simplex_quadrature(::SimplexQuadRule{2,2}) = (
 [0.666666666666667 0.166666666666667;0.166666666666667 0.666666666666667;0.166666666666667 0.166666666666667]
