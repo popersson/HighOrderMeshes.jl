@@ -199,7 +199,7 @@ function set_bnd_numbers!(m::HighOrderMesh, bndexpr)
             facex = m.x[m.el[f2n[:,j],iel],:]
             onbnd = hcat([ snap.(bndexpr(cx)) .== 0 for cx in eachrow(facex) ]...)
             bndnbr = findfirst(all(onbnd,dims=2)[:])
-            isnothing(bndnbr) && throw("No boundary expression matching boundary face")
+            isnothing(bndnbr) && error("No boundary expression matching boundary face")
             m.nb[j,iel] = (-bndnbr,0,0)
         end
     end

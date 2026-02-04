@@ -117,7 +117,7 @@ function gmsh2msh(gmsh_fname)
     gmshtype2porder[gmshhexs] .= 1:5
     
     # Node ordering
-    gmsh_node_order_map(_) = throw("Unknown element")
+    gmsh_node_order_map(_) = error("Unknown element")
     
     gmsh_node_order_map(::Block{1}) =
       [[1,2],
@@ -178,8 +178,8 @@ function gmsh2msh(gmsh_fname)
     gmsh_eltype_vol = unique_gmsh_element_types[elem_dims.==ndims]
     gmsh_eltype_surf = unique_gmsh_element_types[elem_dims.==ndims - 1]
 
-    length(gmsh_eltype_vol) > 1 && throw("Multiple element types not supported")
-    length(gmsh_eltype_surf) > 1 && throw("Multiple element types not supported")
+    length(gmsh_eltype_vol) > 1 && error("Multiple element types not supported")
+    length(gmsh_eltype_surf) > 1 && error("Multiple element types not supported")
 
     elgeom = gmshtype2elgeom[gmsh_eltype_vol[1]]
     porder = gmshtype2porder[gmsh_eltype_vol[1]]
@@ -195,8 +195,8 @@ function gmsh2msh(gmsh_fname)
     surf_elgeom = gmshtype2elgeom[gmsh_eltype_surf[1]]
     surf_porder = gmshtype2porder[gmsh_eltype_surf[1]]
     if !isempty(surf_porder)
-        length(surf_porder) > 1 && throw("Must have unique order surface elements")
-        porder != surf_porder && throw("Must have same porder for volume and surface elements")
+        length(surf_porder) > 1 && error("Must have unique order surface elements")
+        porder != surf_porder && error("Must have same porder for volume and surface elements")
 
         surf_loc = findall(gmsh[:Elements][:type] .== gmsh_eltype_surf[1])
         nbr_surf_nodes = length(gmsh_node_order_map(surf_elgeom)[porder])
@@ -263,7 +263,7 @@ end
 
 ## VTK export
 
-vtk_node_order_map(_) = throw("Unknown element")
+vtk_node_order_map(_) = error("Unknown element")
 
 vtk_node_order_map(::Simplex{2}) = [
         [1,2,3],
@@ -305,7 +305,7 @@ vtk_node_order_map(::Block{3}) = [
 vtk_node_order_map(::FiniteElement{D,G,P,T}) where {D,G,P,T} =
     vtk_node_order_map(G())[P]
 
-vtk_celltype(_) = throw("Unknown element")
+vtk_celltype(_) = error("Unknown element")
 vtk_celltype(::Simplex{2}) = 69
 vtk_celltype(::Simplex{3}) = 71
 vtk_celltype(::Block{2}) = 70
@@ -363,7 +363,7 @@ function vtkwrite(fname, m::HighOrderMesh{D,G,P,T}, u::Array{T}=T[]; umap=nothin
             u = reshape(u, ns*nel, :)
         end
     else
-        throw("u: Unsupported dimensions")
+        error("u: Unsupported dimensions")
     end
     if size(x,2) == 2
         x = hcat(x, 0*x[:,1])
@@ -410,7 +410,7 @@ end
 
 ## ==============================================================================
 
-eltype3dg(::ElementGeometry) = throw("Unsupported element type")
+eltype3dg(::ElementGeometry) = error("Unsupported element type")
 eltype3dg(::Simplex) = 0
 eltype3dg(::Block) = 1
 
@@ -433,12 +433,12 @@ function mshto3dg(m::HighOrderMesh{D,G,P,T}) where {D,G,P,T}
     if eltype == 0 # Simplex
         s = ref_nodes(Simplex{D}(), equispaced(P))
         if !isapprox(s, ref_nodes(m.fe,D))
-            throw("3DG conversion only supported for standard simplex node order. Consider using set_degree(m, porder(m))")
+            error("3DG conversion only supported for standard simplex node order. Consider using set_degree(m, porder(m))")
         end
     elseif eltype == 1 # Block
         s0 = gauss_lobatto01_nodes(P+1, T=T)
         if !isapprox(s0, ref_nodes(m.fe,1))
-            throw("3DG only supports quad meshes with Lobatto nodes. Consider using set_lobatto_nodes")
+            error("3DG only supports quad meshes with Lobatto nodes. Consider using set_lobatto_nodes")
         end
     end
     

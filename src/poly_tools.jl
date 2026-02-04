@@ -121,7 +121,7 @@ function gauss_legendre_nodes(n::Int; T::Type=Float64)
             return x
         end
     end
-    throw("No convergence in Gauss-Legendre Newton iterations")
+    error("No convergence in Gauss-Legendre Newton iterations")
 end
 
 gauss_legendre01_nodes(n::Int; T::Type=Float64) = ( gauss_legendre_nodes(n, T=T) .+ 1) ./ 2
@@ -164,7 +164,7 @@ function gauss_lobatto_nodes(n::Int; T::Type=Float64)
             return x
         end
     end
-    throw("No convergence in Gauss-Lobatto Newton iterations")
+    error("No convergence in Gauss-Lobatto Newton iterations")
 end
 
 gauss_lobatto01_nodes(n::Int; T::Type=Float64) = ( gauss_lobatto_nodes(n, T=T) .+ 1) ./ 2
@@ -235,7 +235,7 @@ end
 ###########################################################################
 ## General Quadrature
 
-quadrature(eg::ElementGeometry, p) = throw("Quadrature not implemented")
+quadrature(eg::ElementGeometry, p) = error("Quadrature not implemented")
 
 quadrature(eg::Simplex{D}, p) where D = simplex_quadrature(SimplexQuadRule{D,p}())
 

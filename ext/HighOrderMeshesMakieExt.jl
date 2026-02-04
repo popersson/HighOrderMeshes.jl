@@ -92,7 +92,7 @@ function Makie.plot(m::HighOrderMesh{D,G,P,T}, u::Array{T}; nsub=nothing, mesh_e
             Colorbar(f[1,2], limits=lims)
         end
     else
-        throw("Dimension not implemented")
+        error("Dimension not implemented")
     end
 
     return f

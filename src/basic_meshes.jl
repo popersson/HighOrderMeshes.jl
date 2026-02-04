@@ -114,7 +114,7 @@ function mshcircle(n=1; p=1, shape=:full)
             if shape == :full
                 return HighOrderMesh(fe, pp, el, bndexpr=p->[0])
             else
-                throw("`shape` must be :quarter, :half, or :full")
+                error("`shape` must be :quarter, :half, or :full")
             end
         end
     end

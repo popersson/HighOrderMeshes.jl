@@ -87,7 +87,7 @@ function viz_mesh(m::HighOrderMesh{2,G,P,T};
     elem_lines, int_lines, bnd_lines, elem_mid
 end
 
-subelement_mesh(::ElementGeometry) = throw("Not implemented")
+subelement_mesh(::ElementGeometry) = error("Not implemented")
 
 function subelement_mesh(::Block{1}, n, T=Float64)
     x = collect((0:n)[:,[1]] ./ T(n))
@@ -124,7 +124,7 @@ function mesh_function_type(m::HighOrderMesh, u::Array)
     elseif size(u,1) == size(m.el,1)
         return :dg
     else
-        throw("Solution field does not match CG or DG type for the mesh")
+        error("Solution field does not match CG or DG type for the mesh")
     end
 end
 

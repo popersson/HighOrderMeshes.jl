@@ -1,6 +1,6 @@
 struct SimplexQuadRule{D,P} end
 
-simplex_quadrature(::SimplexQuadRule{D,P}) where {D,P} = throw("Simplex quadrature not implemented for D=$D, P=$P")
+simplex_quadrature(::SimplexQuadRule{D,P}) where {D,P} = error("Simplex quadrature not implemented for D=$D, P=$P")
 
 simplex_quadrature(::SimplexQuadRule{1,1}) = (
 [0.5]

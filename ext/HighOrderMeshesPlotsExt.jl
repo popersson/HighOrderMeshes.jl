@@ -59,7 +59,7 @@ function Plots.plot(m::HighOrderMesh{D,G,P,T}, u::Array{T}; nsub=nothing, mesh_e
         h = TriplotRecipes.tripcolor(allx[:,1], allx[:,2], allu, allel, color=:viridis, aspect_ratio=:equal)
         if contours != 0
             if mesh_function_type(m,u) != :cg
-                throw("Contours only supported for CG functions")
+                error("Contours only supported for CG functions")
             end
             h = TriplotRecipes.tricontour!(allx[:,1], allx[:,2], allu, allel,
                                            contours, colorbar_entry=false)
@@ -71,7 +71,7 @@ function Plots.plot(m::HighOrderMesh{D,G,P,T}, u::Array{T}; nsub=nothing, mesh_e
         end
         return h
     else
-        throw("Dimension not implemented")
+        error("Dimension not implemented")
     end
 end
 

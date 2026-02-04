@@ -8,6 +8,51 @@ using Test
 using HighOrderMeshes
 
 @testset verbose = true "Core HighOrderMeshes.jl" begin
+    
+    @testset "Element Geometries" begin
+        for D in 1:3, G in [Simplex, Block]
+            geom = G{D}()
+                
+            @testset "$G{$D}" begin
+                # 1. Basic properties
+                @test dim(geom) == D
+                @test nvertices(geom) > 0
+                @test nfaces(geom) > 0
+                @test nedges(geom) >= 0
+                
+                # 2. Consistency Checks
+                if D < 4
+                    fmap = facemap(geom)
+                    @test size(fmap,2) == nfaces(geom)
+                    emap = edgemap(geom)
+                    @test size(emap,2) == nedges(geom)
+                end
+                
+                # 3. Inverse lookup test
+                if !(D == 1 && G == Simplex) # Cannot tell Simplex from Block in 1D
+                    nv = nvertices(geom)
+                    @test HighOrderMeshes.find_elgeom(D, nv) == geom
+                end
+                
+                # 4. Helper functions
+                @test subgeom(geom, D-1) isa ElementGeometry{D-1}
+                @test length(HighOrderMeshes.midpoint(geom)) == D
+                
+                # 5. Show methods, check that it prints to a buffer
+                buf = IOBuffer()
+                show(buf, geom)
+                s = String(take!(buf))
+                @test startswith(s, "ElementGeometry:")
+                @test contains(s, "$(D)D")
+            end
+        end
+        
+        # Corner Cases / Error Handling
+        @test_throws ErrorException HighOrderMeshes.find_elgeom(2, 100)
+        @test_throws ErrorException HighOrderMeshes.plot_face_order(Simplex{4}())
+        @test_throws ErrorException facemap(Simplex{4}())
+        @test_throws ErrorException edgemap(Simplex{4}())
+    end
 
     @testset "Basic ex1mesh properties" begin
         for eg in (Block{2}(), Simplex{2}()), nref in 1:3
