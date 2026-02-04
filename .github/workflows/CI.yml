@@ -47,7 +47,7 @@ jobs:
       
       # ONLY install Plotting packages on Ubuntu to save time on Mac/Windows
       - name: "Install Plotting Dependencies (Ubuntu Only)"
-        if: matrix.os == 'ubuntu-latest'
+        # if: matrix.os == 'ubuntu-latest'
         run: julia --project -e 'using Pkg; Pkg.add(["Plots", "CairoMakie", "TriplotRecipes"])'
         
       - uses: julia-actions/julia-runtest@v1
