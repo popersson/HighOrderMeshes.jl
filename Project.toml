@@ -19,6 +19,7 @@ HighOrderMeshesMakieExt = "Makie"
 HighOrderMeshesPlotsExt = ["Plots", "TriplotRecipes"]
 
 [compat]
+CairoMakie = "0.15"
 LinearAlgebra = "1.10"
 Makie = "0.24"
 Plots = "1"
@@ -29,7 +30,8 @@ TriplotRecipes = "0.1"
 julia = "1.10"
 
 [extras]
+CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["Test"]
+test = ["Test", "CairoMakie"]
