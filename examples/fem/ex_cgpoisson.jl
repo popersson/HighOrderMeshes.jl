@@ -5,8 +5,6 @@
 using HighOrderMeshes
 using GLMakie
 
-include(joinpath(@__DIR__, "assemble_utils.jl"))
-
 # Solve and plot -∇²u = x² with zero Dirichlet boundary conditions on the unit circle
 m = mshcircle(2,p=3)
 pc = FEM_precomp(m)

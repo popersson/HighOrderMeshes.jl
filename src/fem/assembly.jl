@@ -1,5 +1,3 @@
-using StaticArrays, LinearAlgebra, SparseArrays
-
 struct FEM_precomp
     dim      # Dimension
     ng       # Nbr Gauss points
@@ -86,7 +84,6 @@ function cg_mass(m::HighOrderMesh, pc::FEM_precomp)
     A = assemble_matrix(m.el, i -> elmat_mass(pc, i))
 end
 
-
 """
     cg_poisson(m::HighOrderMesh, pc::FEM_precomp, fcn_rhs=xy->xy[1]^2, dirichlet_bnds=nothing)
 
@@ -106,4 +103,3 @@ function cg_poisson(m::HighOrderMesh, pc::FEM_precomp, fcn_rhs=xy->xy[1]^2, diri
     u = A \ f
     u,A,f
 end
-
