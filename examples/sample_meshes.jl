@@ -87,11 +87,12 @@ end
 
 Generates a first-order mesh of a unit sphere using Gmsh's OpenCASCADE kernel.
 """
-function gmsh_sphere()
+function gmsh_sphere(; hmax=0.5, porder=1)
     gmsh = """
         SetFactory("OpenCASCADE");
         Sphere(1) = {0, 0, 0, 1};
+        Mesh.MeshSizeMax = $hmax;
     """
-    m1 = gmshstr2msh(gmsh, porder=1)
+    m1 = gmshstr2msh(gmsh; porder)
 end
 
