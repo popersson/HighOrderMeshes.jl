@@ -1,4 +1,4 @@
-export ex1mesh, ex1solution
+export ex1mesh, ex1solution, ex_vtkexport, ex_plot_mesh, ex_plot_solution, ex_read_gmsh, gmsh_sphere
 
 sample_mesh(::Block{2}) = [0 0; 1 0; 0 1; 1.2 0.9],
                           [1,2,3,4][:,:]
@@ -9,7 +9,8 @@ sample_fcn(x) = sin.(-sum((x.-0.5).^2/0.2^2,dims=ndims(x)))
 """
     ex1mesh(; nref=3, eg=Block{2}())
 
-TBW
+Creates a sample high-order curved mesh by applying a sinusoidal transformation 
+to a refined unit hypercube mesh of the specified `ElementGeometry`.
 """
 function ex1mesh(; nref=3, eg=Block{2}())
     x,el = sample_mesh(eg)
@@ -26,7 +27,8 @@ end
 """
     ex1solution(m; dg=true)
 
-TBW
+Generates a sample solution field (Gaussian-like) on the given mesh `m`. 
+If `dg=true`, the solution is returned on the DG nodes.
 """
 function ex1solution(m; dg=true)
     x = dg ? dg_nodes(m) : m.x
@@ -35,21 +37,56 @@ function ex1solution(m; dg=true)
     u
 end
 
-# Export to VTK:
-# m = ex1mesh()
-# u = ex1solution(m)
-# vtkwrite("ex1.vtk", m, u)
+"""
+    ex_vtkexport(fname="ex1.vtk")
 
-# Plotting:
-# m = ex1mesh()
-# u = ex1solution(m)
-# plot(m, labels=(:nodes, :elements)) # Plot mesh
-# plot(m,u)  # Plot solution
+Exports a sample high-order mesh and solution to a VTK file.
+"""
+function ex_vtkexport(fname="ex1.vtk")
+    m = ex1mesh()
+    u = ex1solution(m)
+    vtkwrite(fname, m, u)
+end
 
-# Read gmsh:
-# m = gmsh2msh(joinpath(pkgdir(HighOrderMeshes), "examples/gmsh/circle_quads.msh"))
-# plot(m, labels=(:nodes, :elements)) # Plot mesh
+"""
+    ex_plot_mesh()
 
+Plots a sample high-order mesh with node and element labels. 
+Requires a visualization backend like `Makie` or `Plots` with `TriplotRecipes`.
+"""
+function ex_plot_mesh()
+    m = ex1mesh()
+    plot(m, labels=(:nodes, :elements))
+end
+
+"""
+    ex_plot_solution()
+
+Plots a sample solution on a high-order mesh.
+Requires a visualization backend like `Makie` or `Plots` with `TriplotRecipes`.
+"""
+function ex_plot_solution()
+    m = ex1mesh()
+    u = ex1solution(m)
+    plot(m, u)
+end
+
+"""
+    ex_read_gmsh(fname=joinpath(pkgdir(HighOrderMeshes), "examples/gmsh/circle_quads.msh"))
+
+Reads a Gmsh file and plots the resulting mesh.
+Requires a visualization backend like `Makie` or `Plots` with `TriplotRecipes`.
+"""
+function ex_read_gmsh(fname=joinpath(pkgdir(HighOrderMeshes), "examples/gmsh/circle_quads.msh"))
+    m = gmsh2msh(fname)
+    plot(m, labels=(:nodes, :elements))
+end
+
+"""
+    gmsh_sphere()
+
+Generates a first-order mesh of a unit sphere using Gmsh's OpenCASCADE kernel.
+"""
 function gmsh_sphere()
     gmsh = """
         SetFactory("OpenCASCADE");
