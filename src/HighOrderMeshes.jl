@@ -26,7 +26,7 @@ using LinearAlgebra, SparseArrays, StaticArrays, Serialization
 # mesh/
 export ElementGeometry, Simplex, Block, dim, name, nvertices, nfaces, nedges, facemap, edgemap, subgeom
 export HighOrderMesh, dg_nodes, elgeom, dim, porder, nnodes, nel
-export el2nb, set_ref_nodes, set_degree, set_lobatto_nodes
+export el2nb, set_ref_nodes, set_degree, set_lobatto_nodes, mkface2nodes
 export uniref, boundary_nodes, set_bnd_numbers!, set_bnd_periodic!, unique_mesh_nodes
 export blockmesh_hypercube, mshhypercube, mshcube, mshsquare, mshline, mshcircle
 
@@ -39,7 +39,7 @@ export FiniteElement, elgeom, dim, porder, nbr_ho_nodes, corner_nodes, name
 export eval_shapefcns, eval_field
 
 # fem/
-export mkface2nodes, mkldgswitch, align_with_ldgswitch!
+export mkldgswitch, align_with_ldgswitch!
 export FEM_precomp, eval_gϕx
 export elmat_mass, elmat_laplace, elres_source
 export assemble_matrix, assemble_vector, strong_dirichlet!

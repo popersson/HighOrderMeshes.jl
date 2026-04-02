@@ -141,3 +141,35 @@ set_degree(m::HighOrderMesh{D,G,P,T}, newp::Int) where {D,G,P,T} =
 """Switch to Gauss-Lobatto nodes (Block elements only)."""
 set_lobatto_nodes(m::HighOrderMesh{D,Block{D},P,T}) where {D,P,T} =
     set_ref_nodes(m, gauss_lobatto01_nodes(P+1))
+
+###########################################################################
+## Face-to-node mapping
+
+"""
+    mkface2nodes(eg::ElementGeometry, sface, svol)
+    mkface2nodes(fe::FiniteElement)
+    mkface2nodes(m::HighOrderMesh)
+
+Build the face-to-node index map for element geometry `eg`. Returns an
+`(nfacenodes × nfaces)` integer matrix where column `j` contains the local
+node indices (within the element) that lie on face `j`.
+
+Matching is done by comparing shape function values at face reference nodes
+against volume reference nodes, so it is basis-order-aware.
+"""
+function mkface2nodes(eg::ElementGeometry{D}, sface::AbstractArray{T}, svol::AbstractArray{T}) where {D,T}
+    fmap       = facemap(eg)
+    basis_face = snap.(eval_shapefcns(subgeom(eg, D-1), sface))
+    basis_vol  = snap.(eval_shapefcns(eg, svol))
+    f2n = fill(0, size(basis_face,1), size(fmap,2))
+    for (ii, ic) in enumerate(eachcol(fmap))
+        f2n[:,ii] .= indexin(eachrow(basis_face), eachrow(basis_vol[:,ic]))
+    end
+    f2n
+end
+
+mkface2nodes(fe::FiniteElement{D,G,P,T}) where {D,G,P,T} =
+    mkface2nodes(G(), ref_nodes(fe, D-1), ref_nodes(fe, D))
+
+mkface2nodes(m::HighOrderMesh) = mkface2nodes(m.fe)
+    
