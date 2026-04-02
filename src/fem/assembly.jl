@@ -49,8 +49,24 @@ function FEM_precomp(m::HighOrderMesh{D}; quadrature_degree=3*porder(m)) where {
     FEM_precomp(D, ng, ns, nel, gξ, gw, gϕ, gϕξ, gϕx, gJinv, gwJdet, gwϕ, gwϕx, gx, gxξ)
 end
 
+function elmat_mass(pc::FEM_precomp)
+    Mel = similar(pc.gϕ, (pc.ns,pc.ns,pc.nel))
+    for iel = 1:pc.nel
+        view(Mel, :, :, iel) .= elmat_mass(pc, iel)
+    end
+    Mel
+end
+
 function elmat_mass(pc::FEM_precomp, iel)
     cMel = pc.gϕ' * pc.gwϕ[:,:,iel]
+end
+
+function elmat_laplace(pc::FEM_precomp)
+    Ael = similar(pc.gϕx, (pc.ns,pc.ns,pc.nel))
+    for iel = 1:pc.nel
+        view(Ael, :, :, iel) .= elmat_laplace(pc, iel)
+    end
+    Ael
 end
 
 function elmat_laplace(pc::FEM_precomp, iel)
