@@ -49,3 +49,12 @@ end
 # Read gmsh:
 # m = gmsh2msh(joinpath(pkgdir(HighOrderMeshes), "examples/gmsh/circle_quads.msh"))
 # plot(m, labels=(:nodes, :elements)) # Plot mesh
+
+function gmsh_sphere()
+    gmsh = """
+        SetFactory("OpenCASCADE");
+        Sphere(1) = {0, 0, 0, 1};
+    """
+    m1 = gmshstr2msh(gmsh, porder=1)
+end
+
