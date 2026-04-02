@@ -40,7 +40,7 @@ export eval_shapefcns, eval_field
 # fem/
 export mkface2nodes, mkldgswitch, align_with_ldgswitch!
 export FEM_precomp, eval_gϕx
-export elmat_mass, elmat_laplace, elres_rhs
+export elmat_mass, elmat_laplace, elres_source
 export assemble_matrix, assemble_vector, strong_dirichlet!
 export cg_mass, cg_poisson
 

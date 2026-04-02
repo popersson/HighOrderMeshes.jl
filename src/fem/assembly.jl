@@ -7,10 +7,17 @@ struct FEM_precomp
     gw       # Gauss weights (ng)
     gϕ       # Basis functions at Gauss points (ng x ns)
     gϕξ      # Derivatives of gϕ w.r.t. ref coords (ng x ns x D)
+    gϕx      # Derivatives of gϕ w.r.t. xyz-coordinates (ng x ns x nel x D)
     gJinv    # Element mapping inv Jacobian at all mesh Gauss points (ng x nel of SMatrix{D,D})
-    gwJdet   # Element mapping Jacobian determinant at all mesh Gauss points (ng x nel)
+    gwJdet   # gw-scaled gJinv (ng x nel)
+    gwϕ      # gwJdet-scaled gϕ (ng x ns x nel)
+    gwϕx     # gwJdet-scaled gϕx (ng x ns x nel x D)
     gx       # xyz-coordinates at all mesh Gauss points (ng x nel x D)
     gxξ      # Derivatives of gx w.r.t. ref coords (ng x nel x D x D)
+end
+
+function Base.show(io::IO, pc::FEM_precomp)
+    print(io, "FEM_precomp: $(pc.dim)D, $(pc.ns) solution points, $(pc.ng) Gauss points, $(pc.nel) elements.")
 end
 
 function FEM_precomp(m::HighOrderMesh{D}; quadrature_degree=3*porder(m)) where {D}
@@ -28,31 +35,31 @@ function FEM_precomp(m::HighOrderMesh{D}; quadrature_degree=3*porder(m)) where {
     gJinv = inv.(gJ)
     gwJdet = @. gw * det(gJ)
 
-    FEM_precomp(D, ng, ns, nel, gξ, gw, gϕ, gϕξ, gJinv, gwJdet, gx, gxξ)
-end
-
-function eval_gϕx(pc::FEM_precomp, iel)
-    gϕx = similar(pc.gϕξ)
-    for ig = 1:pc.ng
-        invJ = pc.gJinv[ig,iel]
-        gϕx[ig,:,:] = pc.gϕξ[ig,:,:] * invJ
+    gϕx = similar(gϕξ, (ng, ns, nel, D))
+    gwϕx = similar(gϕx)
+    gwϕ = similar(gϕ, (ng, ns, nel))
+    for iel = 1:nel
+        for ig = 1:ng
+            gϕx[ig, :, iel, :] = gϕξ[ig,:,:] * gJinv[ig,iel]
+            gwϕx[ig, :, iel, :] = gwJdet[ig,iel] .* gϕx[ig,:,iel,:]
+        end
+        gwϕ[:, :, iel] = gwJdet[:,iel] .* gϕ
     end
-    gϕx
+
+    FEM_precomp(D, ng, ns, nel, gξ, gw, gϕ, gϕξ, gϕx, gJinv, gwJdet, gwϕ, gwϕx, gx, gxξ)
 end
 
 function elmat_mass(pc::FEM_precomp, iel)
-    cMel = pc.gϕ' * (pc.gwJdet[:,iel] .* pc.gϕ)
+    cMel = pc.gϕ' * pc.gwϕ[:,:,iel]
 end
 
 function elmat_laplace(pc::FEM_precomp, iel)
-    gϕx = eval_gϕx(pc, iel)
-    gwϕx = pc.gwJdet[:,iel] .* gϕx
-    cAel = sum( (gϕx[:,:,d]' * gwϕx[:,:,d] for d = 1:pc.dim) )
+    cAel = sum( (pc.gϕx[:,:,iel,d]' * pc.gwϕx[:,:,iel,d] for d = 1:pc.dim) )
 end
 
-function elres_rhs(pc::FEM_precomp, iel, fcn_rhs=x->1)
+function elres_source(pc::FEM_precomp, iel, fcn_rhs=x->1)
     f = [ fcn_rhs(view(pc.gx, ig, iel, :)) for ig = 1:pc.ng ]
-    cfel = ((pc.gwJdet[:,iel] .* f)' * pc.gϕ)[:]
+    cfel = (f' * pc.gwϕ[:,:,iel])[:]
 end
 
 function assemble_matrix(el, fcn_Ael)
@@ -98,7 +105,7 @@ plot(m,u, contours=10, mesh_edges=true)
 """
 function cg_poisson(m::HighOrderMesh, pc::FEM_precomp, fcn_rhs=xy->xy[1]^2, dirichlet_bnds=nothing)
     A = assemble_matrix(m.el, i -> elmat_laplace(pc, i))
-    f = assemble_vector(m.el, i -> elres_rhs(pc, i, fcn_rhs))
+    f = assemble_vector(m.el, i -> elres_source(pc, i, fcn_rhs))
     strong_dirichlet!(A, f, boundary_nodes(m, dirichlet_bnds))
     u = A \ f
     u,A,f
