@@ -1,3 +1,24 @@
+"""
+    HighOrderMeshes
+
+A Julia package for high-order unstructured mesh generation, manipulation, and
+finite element assembly on simplex (triangles, tetrahedra) and block (quads,
+hexahedra) elements at arbitrary polynomial order.
+
+**Submodule layout** (all exported into the top-level namespace):
+
+| Directory      | Contents                                              |
+|:-------------- |:----------------------------------------------------- |
+| `mesh/`        | Element geometry, mesh struct, refinement, generators |
+| `basis/`       | Legendre polynomials, quadrature, reference elements  |
+| `fem/`         | FEM assembly, CG solvers, DG utilities                |
+| `viz/`         | Backend-agnostic mesh and solution visualization data |
+| `io/`          | Binary `.hom` format, Gmsh import, VTK export         |
+
+Visualization backends are loaded as package extensions:
+- `using Makie` (or a Makie backend) enables `plot(m)` and `plot(m, u)` via Makie.
+- `using Plots, TriplotRecipes` enables the same via Plots.jl.
+"""
 module HighOrderMeshes
 
 using LinearAlgebra, SparseArrays, StaticArrays, Serialization
@@ -14,7 +35,7 @@ export gauss_legendre_nodes, gauss_legendre01_nodes, gauss_legendre_quadrature, 
 export gauss_lobatto_nodes, gauss_lobatto01_nodes, gauss_lobatto_quadrature, gauss_lobatto01_quadrature
 export equispaced, ref_nodes, quadrature
 export FiniteElement, elgeom, dim, porder, nbr_ho_nodes, corner_nodes, name
-export eval_shapefcns, eval_fcn
+export eval_shapefcns, eval_field
 
 # fem/
 export mkface2nodes, mkldgswitch, align_with_ldgswitch!

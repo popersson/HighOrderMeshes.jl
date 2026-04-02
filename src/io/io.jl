@@ -1,12 +1,26 @@
-#######################################################
-## File I/O - binary .hom format
+###########################################################################
+## Binary .hom format
+#
+# File layout (version "HOM_v1"):
+#   [6 bytes]  magic header "HOM_v1"
+#   [Int64]    D  (spatial dimension)
+#   [Int64]    P  (polynomial order)
+#   [UInt8]    geometry index into geometry_types
+#   [serialized] T  (floating-point type, via Serialization.jl)
+#   [Int64 + data]  1D reference nodes (length + values)
+#   [2×Int64 + data] x  (nnodes × D coordinate matrix)
+#   [2×Int64 + data] el (nnodes_per_elem × nelems, stored as Int64)
+#   [2×Int64 + data] nb (nfaces × nelems NeighborData matrix)
 
 using Serialization
 
 """
-    savemesh(fname, m::HighOrderMesh{D,G,P,T})
+    savemesh(fname, m::HighOrderMesh)
 
-Save HighOrderMesh to .hom format.
+Save `m` to a binary `.hom` file. The format stores all mesh data needed to
+exactly reconstruct the mesh, including geometry type, polynomial order,
+reference nodes, coordinates, connectivity, and neighbor data.
+Use `loadmesh` to read it back.
 """
 function savemesh(fname, m::HighOrderMesh{D,G,P,T}) where {D,G,P,T}
     open(fname, "w") do io
@@ -52,9 +66,9 @@ function savemesh(fname, m::HighOrderMesh{D,G,P,T}) where {D,G,P,T}
 end
 
 """
-    loadmesh(fname) -> HighOrderMesh{D,G,P,T}
+    loadmesh(fname) -> HighOrderMesh
 
-Load HighOrderMesh from .hom format.
+Load a `HighOrderMesh` from a binary `.hom` file previously written by `savemesh`.
 """
 function loadmesh(fname)
     open(fname, "r") do io
@@ -109,69 +123,57 @@ function loadmesh(fname)
     end
 end
 
-#######################################################
-## File I/O - simple but incomplete .txt format
+###########################################################################
+## ASCII .txt format (legacy, incomplete)
+#
+# Simple space-delimited text format. Does not store polynomial order,
+# reference nodes, or neighbor data — use .hom for full round-trips.
 
-"""
-    write_matrix(f, x)
-
-TBW
-"""
+# Write matrix `x` to an open IO stream, one row per line, space-separated.
 function write_matrix(f, x)
     for i = 1:size(x,1)
-        for j = 1:size(x,2)
-            print(f, x[i,j])
-            if j<size(x,2)
-                print(f, ' ')
-            end
-        end
+        join(f, x[i,:], ' ')
         println(f)
     end
 end
 
-"""
-    read_matrix!(f, x)
-
-TBW
-"""
+# Read a space-separated matrix from an open IO stream into pre-allocated `x`.
 function read_matrix!(f, x)
     for i = 1:size(x,1)
-        line = readline(f)
-        x[i,:] = parse.(eltype(x), split(line, ' ')[1:size(x,2)])
+        x[i,:] = parse.(eltype(x), split(readline(f), ' ')[1:size(x,2)])
     end
 end
 
 """
     savemeshtxt(fname, m::HighOrderMesh)
 
-TBW
+Save the node coordinates and element connectivity of `m` to a plain-text
+`.txt` file. Only stores `x` and `el`; polynomial order, reference nodes,
+and neighbor data are not saved. Use `savemesh` / `loadmesh` for full round-trips.
 """
 function savemeshtxt(fname, m::HighOrderMesh)
-    nx = size(m.x,1)
-    nel = size(m.el,2)
-
-    f = open(fname, "w")
-    println(f, "$nx $nel $(size(m.el,1))  # nbr_nodes nbr_elems nbr_nodes_per_elem")
-    write_matrix(f, m.x)
-    write_matrix(f, m.el')
-    close(f)
+    open(fname, "w") do f
+        println(f, "$(size(m.x,1)) $(size(m.el,2)) $(size(m.el,1))  # nnodes nelems nnodes_per_elem")
+        write_matrix(f, m.x)
+        write_matrix(f, m.el')
+    end
 end
 
 """
-    loadmeshtxt(fname)
+    loadmeshtxt(fname) -> HighOrderMesh
 
-TBW
+Load a mesh from a plain-text `.txt` file written by `savemeshtxt`.
+Returns a linear (`p=1`) `HighOrderMesh`; neighbor data is recomputed from connectivity.
 """
 function loadmeshtxt(fname)
-    f = open(fname, "r")
-    line = split(readline(f), " ")
-    nx,nel,ne = parse.(Int64, line[1:3])
-    name = line[3]
-    x = zeros(Float64, nx, 2)
-    read_matrix!(f, x)
-    el = zeros(Int64, nel, ne)
-    read_matrix!(f, el)
-    close(f)
-    return HighOrderMesh(x,el')
+    open(fname, "r") do f
+        line = split(readline(f), ' ')
+        nx, nel, ne = parse.(Int64, line[1:3])
+        x  = zeros(Float64, nx, 2)
+        el = zeros(Int64, nel, ne)
+        read_matrix!(f, x)
+        read_matrix!(f, el)
+        HighOrderMesh(x, el')
+    end
 end
 

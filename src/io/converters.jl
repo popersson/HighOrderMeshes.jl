@@ -1,8 +1,8 @@
-## ==============================================================================
+###########################################################################
+## Gmsh import
 
-## gmsh import
-
-# Parse GMSH file into Dict #
+# Low-level parser: reads a Gmsh .msh v2.2 file into a Dict with keys
+# :PhysicalNames, :Nodes, :Elements. Used internally by gmsh2msh.
 function parse_gmsh(fname)
     fid = open(fname)
     if fid == -1
@@ -82,11 +82,13 @@ function parse_gmsh(fname)
     return gmsh
 end
 
-## Create Mesh from GMSH file ##
 """
     gmsh2msh(gmsh_fname)
 
-TBW
+Import a Gmsh mesh file (`.msh` format v2.2) and return a `HighOrderMesh`.
+Supports triangles, quads, tetrahedra, and hexahedra at polynomial orders 1–5.
+Boundary tags from Gmsh physical groups are preserved as boundary region numbers
+in `m.nb`. Automatically drops the z-coordinate for 2D meshes.
 """
 function gmsh2msh(gmsh_fname)
   
@@ -219,50 +221,49 @@ function gmsh2msh(gmsh_fname)
     return m
 end
 
-## Run GMSH, convert to Mesh ##
 """
     rungmsh2msh(gmshfname; porder=1, cmdadd="")
 
-TBW
+Run the `gmsh` command-line tool on a `.geo` file, then import the resulting
+mesh as a `HighOrderMesh`. Requires `gmsh` to be on the system `PATH`.
+`cmdadd` is an optional string (or vector of strings) of extra Gmsh flags.
 """
 function rungmsh2msh(gmshfname; porder=1, cmdadd="")
     fout = tempname() * ".msh"
-    if isa(cmdadd, String)
-        cmdadd = split(cmdadd)
-    end
-    gmshcmd = `gmsh -3 -format msh2 -o $fout $gmshfname -order $porder $cmdadd`
-    gmsh_output = read(gmshcmd, String)
+    cmdadd isa String && (cmdadd = split(cmdadd))
+    run(`gmsh -3 -format msh2 -o $fout $gmshfname -order $porder $cmdadd`)
     msh = gmsh2msh(fout)
     rm(fout)
     msh
 end
 
+"""
+    gmshstr2msh(geostr; porder=1, cmdadd="")
+
+Write the Gmsh geometry string `geostr` to a temporary `.geo` file, mesh it
+with the `gmsh` command-line tool, and return the result as a `HighOrderMesh`.
+Requires `gmsh` to be on the system `PATH`.
+"""
 function gmshstr2msh(geostr; porder=1, cmdadd="")
     fbase = tempname()
-    fin = fbase * ".geo"
-    fout = fbase * ".msh"
-
-    open(fin,"w") do io
+    fin   = fbase * ".geo"
+    fout  = fbase * ".msh"
+    open(fin, "w") do io
         println(io, geostr)
     end
-    
-    if isa(cmdadd, String)
-        cmdadd = split(cmdadd)
-    end
-    gmshcmd = `gmsh -3 -format msh2 -o $fout $fin -order $porder $cmdadd`
-    gmsh_output = read(gmshcmd, String)
+    cmdadd isa String && (cmdadd = split(cmdadd))
+    run(`gmsh -3 -format msh2 -o $fout $fin -order $porder $cmdadd`)
     msh = gmsh2msh(fout)
-
-    rm(fin)
-    rm(fout)
+    rm(fin);  rm(fout)
     msh
 end
 
 
-## ==============================================================================
-
+###########################################################################
 ## VTK export
 
+# Node reordering maps from internal ordering to VTK's high-order element
+# conventions. Index [P] gives the permutation for polynomial order P.
 vtk_node_order_map(_) = error("Unknown element")
 
 vtk_node_order_map(::Simplex{2}) = [
@@ -313,11 +314,8 @@ vtk_celltype(::Block{3}) = 72
 vtk_celltype(::FiniteElement{D,G,P,T}) where {D,G,P,T} =
     vtk_celltype(G())
 
-"""
-    mk_vtk_data(fid, typename, uname, u)
-
-TBW
-"""
+# Write a POINT_DATA block to an open VTK ASCII file.
+# typename: "SCALARS" or "VECTORS"; uname: field name in the VTK file.
 function mk_vtk_data(fid, typename, uname, u)
     if typename == "VECTORS"
         println(fid, "$(typename) $(uname) float")
@@ -332,19 +330,20 @@ function mk_vtk_data(fid, typename, uname, u)
 end
 
 """
-    vtkwrite(fname, m::HighOrderMesh{D,G,P,T}, u::Array{T}=T[]; umap=nothing) where {D,G,P,T}
+    vtkwrite(fname, m::HighOrderMesh, u=T[]; umap=nothing)
 
-    umap: Vector with indices into u for each VTK solution field
+Write mesh `m` and optional solution `u` to a VTK ASCII file (`.vtk`).
+Supports CG fields (`size(u,1) == nnodes`) and DG fields (`size(u,1) == nnodes_per_elem`).
 
-          Ex:
-                m = ex1mesh()
-                u = hcat(m.x[:,1].^2, m.x[:,2], -m.x[:,1]) # 3 components
-                vtkwrite("ex1.vtk", m, u, umap=[1, 2:3])   # 2 VTK solution fields:
-                                                           #   component 1   (scalar)
-                                                           #   component 2-3 (vector)
+`umap` is a vector of index specs that split `u` into named VTK fields:
+- an integer selects a single column → `SCALARS`
+- a range selects multiple columns  → `VECTORS`
 
-
-TBW
+```julia
+m = mshcircle(2, p=2)
+u = hcat(m.x[:,1].^2, m.x[:,2], -m.x[:,1])   # 3 components
+vtkwrite("out.vtk", m, u, umap=[1, 2:3])      # scalar u1, vector u23
+```
 """
 function vtkwrite(fname, m::HighOrderMesh{D,G,P,T}, u::Array{T}=T[]; umap=nothing) where {D,G,P,T}
     if size(u,1) == size(m.x,1)
@@ -408,22 +407,38 @@ function vtkwrite(fname, m::HighOrderMesh{D,G,P,T}, u::Array{T}=T[]; umap=nothin
     close(fid)
 end
 
-## ==============================================================================
+###########################################################################
+## 3DG export
+#
+# 3DG is an external DG-FEM package with its own mesh format. These functions
+# convert a HighOrderMesh into the named-tuple structure that 3DG expects.
 
-eltype3dg(::ElementGeometry) = error("Unsupported element type")
+# 3DG element type codes: 0 = simplex, 1 = block
+eltype3dg(::ElementGeometry) = error("Unsupported element type for 3DG export")
 eltype3dg(::Simplex) = 0
-eltype3dg(::Block) = 1
+eltype3dg(::Block)   = 1
 
+# Default node ordering (Block elements): identity permutation
 node_order_3dg(m::HighOrderMesh) = 1:nbr_ho_nodes(m.fe)
 
+# Simplex elements: 3DG uses a different barycentric index ordering than HOM
 function node_order_3dg(m::HighOrderMesh{D,Simplex{D},P}) where {D,P}
-    s3dg = ([ (i...,P-sum(i)) for i in Iterators.product(fill(0:P,D)...) if sum(i) <= P ])
-    shom = ([ (P-sum(i),i...) for i in Iterators.product(fill(0:P,D)...) if sum(i) <= P ])
-    ix = indexin(s3dg, shom)
+    s3dg = [ (i..., P-sum(i)) for i in Iterators.product(fill(0:P,D)...) if sum(i) <= P ]
+    shom = [ (P-sum(i), i...) for i in Iterators.product(fill(0:P,D)...) if sum(i) <= P ]
+    indexin(s3dg, shom)
 end
 
-# Convert to the mesh format in the DG-FEM package 3DG
-# Returns 3DG mesh fields as named tuple
+"""
+    mshto3dg(m::HighOrderMesh)
+
+Convert `m` to the mesh format expected by the 3DG DG-FEM package.
+Returns a named tuple of arrays matching 3DG's internal mesh fields.
+
+For simplex meshes, nodes must be in the standard equispaced order
+(use `set_degree(m, porder(m))` if needed).
+For block meshes, Gauss-Lobatto nodes are required
+(use `set_lobatto_nodes(m)` if needed).
+"""
 function mshto3dg(m::HighOrderMesh{D,G,P,T}) where {D,G,P,T}
     eltype,nv,nf = eltype3dg(G()), nvertices(G()), nfaces(G())
 

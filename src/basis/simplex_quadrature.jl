@@ -1,3 +1,13 @@
+# Auto-generated from a MATLAB script. Do not edit by hand.
+# To add higher-order or higher-dimension rules, regenerate from the source script.
+
+"""
+    SimplexQuadRule{D,P}
+
+Dispatch token for a `D`-dimensional simplex quadrature rule exact for
+polynomials of degree `P`. Retrieve nodes and weights via `simplex_quadrature`.
+Rules are hard-coded from symmetric quadrature tables (generated externally).
+"""
 struct SimplexQuadRule{D,P} end
 
 simplex_quadrature(::SimplexQuadRule{D,P}) where {D,P} = error("Simplex quadrature not implemented for D=$D, P=$P")

@@ -108,7 +108,6 @@ using HighOrderMeshes
         
     @testset "CG Poisson (experimental)" begin
         rootdir = pkgdir(HighOrderMeshes)
-        include(joinpath(rootdir, "examples", "fem", "assemble_utils.jl"))
         # Solve and plot -∇²u = 1 with zero Dirichlet boundary conditions on the unit circle
         for n = 1:4, porder = 1:4
             m = mshcircle(n, p=porder)
@@ -118,7 +117,7 @@ using HighOrderMeshes
             error = maximum(abs.(u[:] - uexact[:]))
             # @show (n,porder,error)
             # Assume O(h^{p+1}) convergence, with fitted constant (upper bound)
-            error_bound = (0.2 / n) ^ (porder + 1) 
+            error_bound = (0.2 / n) ^ (porder + 1)
             @test error < error_bound
         end
     end
