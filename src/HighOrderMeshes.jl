@@ -25,7 +25,8 @@ using LinearAlgebra, SparseArrays, StaticArrays, Serialization
 
 # mesh/
 export ElementGeometry, Simplex, Block, dim, name, nvertices, nfaces, nedges, facemap, edgemap, subgeom
-export HighOrderMesh, dg_nodes, elgeom, dim, porder, el2nb, set_ref_nodes, set_degree, set_lobatto_nodes
+export HighOrderMesh, dg_nodes, elgeom, dim, porder, nnodes, nel
+export el2nb, set_ref_nodes, set_degree, set_lobatto_nodes
 export uniref, boundary_nodes, set_bnd_numbers!, set_bnd_periodic!, unique_mesh_nodes
 export blockmesh_hypercube, mshhypercube, mshcube, mshsquare, mshline, mshcircle
 

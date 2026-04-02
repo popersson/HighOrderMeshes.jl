@@ -61,11 +61,13 @@ dg_nodes(m::HighOrderMesh) = m.x[m.el,:]
 elgeom(::HighOrderMesh{D,G,P,T}) where {D,G,P,T} = G()
 dim(::HighOrderMesh{D,G,P,T}) where {D,G,P,T} = D
 porder(::HighOrderMesh{D,G,P,T}) where {D,G,P,T} = P
+nnodes(m::HighOrderMesh) = size(m.x,1)
+nel(m::HighOrderMesh) = size(m.el,2)
 
 function Base.show(io::IO, m::HighOrderMesh)
     print(io, "HighOrderMesh: $(dim(m))D, ")
-    print(io, "$(size(m.x,1)) vertices, ")
-    print(io, "$(size(m.el,2)) $(name(m.fe)) elements.")
+    print(io, "$(nnodes(m)) vertices, ")
+    print(io, "$(nel(m)) $(name(m.fe)) elements.")
 end
 
 ###########################################################################
