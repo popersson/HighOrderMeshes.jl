@@ -6,13 +6,16 @@
 #   [Int64]    D  (spatial dimension)
 #   [Int64]    P  (polynomial order)
 #   [UInt8]    geometry index into geometry_types
-#   [serialized] T  (floating-point type, via Serialization.jl)
+#   [UInt8]    type index into coordinate_types
 #   [Int64 + data]  1D reference nodes (length + values)
 #   [2×Int64 + data] x  (nnodes × D coordinate matrix)
 #   [2×Int64 + data] el (nnodes_per_elem × nelems, stored as Int64)
 #   [2×Int64 + data] nb (nfaces × nelems NeighborData matrix)
+#
+# geometry_types:   [Simplex, Block]
+# coordinate_types: [Float64, Float32, Float16, BigFloat]
 
-using Serialization
+const coordinate_types = [Float64, Float32, Float16, BigFloat]
 
 """
     savemesh(fname, m::HighOrderMesh)
@@ -40,7 +43,11 @@ function savemesh(fname, m::HighOrderMesh{D,G,P,T}) where {D,G,P,T}
         write(io, UInt8(geo_id))
 
         # --- 2. DATA TYPE (T) ---
-        serialize(io, T)
+        type_id = findfirst(==(T), coordinate_types)
+        if isnothing(type_id)
+            error("Unsupported coordinate type: $T. Add to coordinate_types.")
+        end
+        write(io, UInt8(type_id))
 
         # --- 3. REF NODES ---
         ref = m.fe.ref_nodes[1]
@@ -91,7 +98,11 @@ function loadmesh(fname)
         G = base_geo{D}                   # e.g., Simplex{2}
 
         # 3. Read Type T
-        T = deserialize(io)
+        type_id = read(io, UInt8)
+        if type_id > length(coordinate_types)
+            error("Unknown coordinate type ID: $type_id")
+        end
+        T = coordinate_types[type_id]
 
         # 4. Read ref_nodes
         n_ref = read(io, Int64)

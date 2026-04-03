@@ -21,7 +21,7 @@ Visualization backends are loaded as package extensions:
 """
 module HighOrderMeshes
 
-using LinearAlgebra, SparseArrays, StaticArrays, Serialization
+using LinearAlgebra, SparseArrays, StaticArrays
 
 # mesh/
 export ElementGeometry, Simplex, Block, dim, name, nvertices, nfaces, nedges, facemap, edgemap, subgeom
