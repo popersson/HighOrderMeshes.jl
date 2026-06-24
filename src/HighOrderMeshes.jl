@@ -50,7 +50,7 @@ export viz_mesh, viz_solution, mesh_function_type
 
 # io/
 export savemesh, loadmesh, savemeshtxt, loadmeshtxt
-export mshto3dg, gmsh2msh, rungmsh2msh, gmshstr2msh, vtkwrite
+export mshto3dg, mshfrom3dg, gmsh2msh, rungmsh2msh, gmshstr2msh, vtkwrite
 
 # mesh/ (element topology, no basis dependency)
 include("mesh/element_geometry.jl")

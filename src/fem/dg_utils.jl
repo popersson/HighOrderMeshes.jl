@@ -93,7 +93,7 @@ function align_with_ldgswitch!(m::HighOrderMesh{2,Block{2},P}, sw=nothing) where
         for j = 1:4
             if cnb[j][2] > 0
                 jel    = cnb[j][1]
-                cnb[j] = (jel, ifcmaps[mapcase[jel]][cnb[j][2]], 0)
+                cnb[j] = (jel, ifcmaps[mapcase[jel]][cnb[j][2]], 1)
             end
         end
         m.nb[:,iel] = cnb[fcmaps[cmap]]

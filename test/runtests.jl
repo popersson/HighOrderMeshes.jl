@@ -159,7 +159,28 @@ using HighOrderMeshes
 
             flds = mshto3dg(m)
             @test size(flds.p1)[[1,3]] == size(m.el)
+
+            m2 = mshfrom3dg(flds)
+            @test elgeom(m2) == elgeom(m)
+            @test porder(m2) == porder(m)
+            @test dg_nodes(m2) ≈ dg_nodes(m)
+            @test m2.nb == m.nb
+
+            flds2 = mshto3dg(m2)
+            @test flds2.p1 ≈ flds.p1
+            @test flds2.t2t == flds.t2t
+            @test flds2.t2n == flds.t2n
         end
+
+        m = mshcube(2, 1, 1; p=1)
+        flds = mshto3dg(m)
+        t2n = copy(flds.t2n)
+        i = findfirst(>=(0), flds.t2t)
+        perm = 5
+        t2n[i] = (t2n[i] & 0x0f) + 2^7 + 2^4 * (perm - 1)
+        m2 = mshfrom3dg(merge(flds, (; t2n)))
+        @test m2.nb[i][2] == (flds.t2n[i] & 0x0f) + 1
+        @test m2.nb[i][3] == perm
     end
 
     @testset "Mesh utilities" begin
@@ -167,6 +188,27 @@ using HighOrderMeshes
         set_bnd_periodic!(msh, (1,2), 1)    # Periodic left/right (x-direction)
         set_bnd_periodic!(msh, (3,4), 2)    # Periodic bottom/top (y-direction)
         @test minimum(first.(msh.nb)[:]) == 1  # No actual boundaries
+        @test all(last.(msh.nb)[:] .== 1)
+
+        x = [0.0 0.0 0.0
+             1.0 0.0 0.0
+             0.0 1.0 0.0
+             0.0 0.0 1.0
+             1.0 1.0 1.0]
+        el = [1 5
+              2 3
+              3 4
+              4 2]
+        nb = HighOrderMeshes.el2nb(el, Simplex{3}())
+        @test nb[1,1] == (2, 1, 3)
+        @test nb[1,2] == (1, 1, 2)
+
+        msh = mshcube(2, 1, 1)
+        oldnb = copy(msh.nb)
+        set_bnd_periodic!(msh, (1,2), 1)
+        periodic_faces = findall(i -> oldnb[i][1] < 0 && msh.nb[i][1] > 0, eachindex(msh.nb))
+        @test !isempty(periodic_faces)
+        @test all(i -> msh.nb[i][3] >= 1, periodic_faces)
 
         msh = ex1mesh(nref=1, eg=Block{2}())
         align_with_ldgswitch!(msh)

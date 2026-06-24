@@ -136,12 +136,22 @@ msh = mshsquare(5)
 set_bnd_periodic!(msh, (1,2), 1)   # periodic left/right (x)
 set_bnd_periodic!(msh, (3,4), 2)   # periodic bottom/top (y)
 ```
-
-TODO: neighbor face permutation (orientation) is not yet tracked.
 """
 function set_bnd_periodic!(m::HighOrderMesh{D,G,P,T}, bnds, dir) where {D,G,P,T}
     f2n  = mkface2nodes(m)
+    fmap = facemap(G())
+    corner_el = m.el[corner_nodes(m.fe), :]
     match_coords = (1:D) .≠ dir  # compare all coords except the periodic direction
+
+    function periodic_face_permutation(x1, x2)
+        D <= 2 && return Int16(1)
+        sx1 = snap.(x1[:,match_coords])
+        sx2 = snap.(x2[:,match_coords])
+        perm = findfirst(i -> sx2[i,:] == sx1[1,:], axes(sx2,1))
+        isnothing(perm) && error("Could not determine periodic face permutation")
+        Int16(perm)
+    end
+
     dd = Dict{Matrix{T}, NTuple{2,Int}}()
     for iel in axes(m.nb,2), j in axes(m.nb,1)
         -m.nb[j,iel][1] ∈ bnds || continue
@@ -149,8 +159,10 @@ function set_bnd_periodic!(m::HighOrderMesh{D,G,P,T}, bnds, dir) where {D,G,P,T}
         key   = sortslices(snap.(facex[:,match_coords]), dims=1)
         if haskey(dd, key)
             iel0, j0 = pop!(dd, key)
-            m.nb[j,iel]   = (iel0, j0, 0)
-            m.nb[j0,iel0] = (iel,  j,  0)
+            fcx  = m.x[corner_el[fmap[:,j],iel],:]
+            fcx0 = m.x[corner_el[fmap[:,j0],iel0],:]
+            m.nb[j,iel]   = (iel0, j0, periodic_face_permutation(fcx, fcx0))
+            m.nb[j0,iel0] = (iel,  j,  periodic_face_permutation(fcx0, fcx))
         else
             dd[key] = (iel, j)
         end

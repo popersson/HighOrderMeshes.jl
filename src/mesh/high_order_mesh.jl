@@ -1,4 +1,4 @@
-# (neighbor element, neighbor face index, orientation flag)
+# (neighbor element, neighbor face index, one-based face permutation)
 const NeighborData = Tuple{Int32, Int16, Int16}
 
 """
@@ -10,7 +10,8 @@ polynomial order `P`, and floating-point type `T`.
 - `fe`: reference element (basis and quadrature nodes)
 - `x`:  global node coordinates (`nnodes × D`)
 - `el`: element-to-node connectivity (`nnodes_per_elem × nelems`)
-- `nb`: neighbor data per face (`nfaces × nelems`); boundary faces have
+- `nb`: neighbor data per face (`nfaces × nelems`). Interior faces store a
+        one-based local face permutation in the third entry; boundary faces have
         a non-positive first entry (`-bnd_number`, 0, 0).
 """
 struct HighOrderMesh{D,G,P,T}
@@ -73,10 +74,18 @@ end
 ###########################################################################
 ## Neighbor connectivity
 
+# One-based face permutation matching 3DG's convention: for a shared 3D face,
+# store the position of this face's first node in the neighbor's face ordering.
+function face_permutation(::ElementGeometry{D}, f1, f2) where {D}
+    D <= 2 && return Int16(1)
+    perm = findfirst(==(first(f1)), f2)
+    isnothing(perm) && error("Could not determine neighbor face permutation")
+    Int16(perm)
+end
+
 # Build the neighbor matrix from the linear corner-node connectivity.
 # Faces are matched by sorting their vertex indices; unmatched faces are
 # boundary faces and remain (0,0,0) until set_bnd_numbers! labels them.
-# TODO: implement neighbor face permutation (orientation tracking).
 function el2nb(el, eg)
     fmap = facemap(eg)
     nv, nel = size(el)
@@ -86,15 +95,17 @@ function el2nb(el, eg)
     dd = Dict{NTuple{nfv,Int}, NeighborData}()
     sizehint!(dd, nel * nf)
     e = fill(0, nfv)
+    f = fill(0, nfv)
     for iel = 1:nel
         for jf = 1:nf
-            e[:] = el[fmap[:,jf], iel]
-            sort!(e)
-            et = Tuple(e)
+            f[:] = el[fmap[:,jf], iel]
+            e[:] = f
+            et = Tuple(sort!(e))
             if haskey(dd, et)
                 nbel = pop!(dd, et)
-                nb[jf,iel]          = nbel
-                nb[nbel[2],nbel[1]] = (iel, jf, 0)
+                f2 = el[fmap[:,nbel[2]], nbel[1]]
+                nb[jf,iel]          = (nbel[1], nbel[2], face_permutation(eg, f, f2))
+                nb[nbel[2],nbel[1]] = (iel, jf, face_permutation(eg, f2, f))
             else
                 dd[et] = (iel, jf, 0)
             end

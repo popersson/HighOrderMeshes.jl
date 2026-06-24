@@ -419,14 +419,17 @@ eltype3dg(::Simplex) = 0
 eltype3dg(::Block)   = 1
 
 # Default node ordering (Block elements): identity permutation
-node_order_3dg(m::HighOrderMesh) = 1:nbr_ho_nodes(m.fe)
+node_order_3dg(::Block{D}, porder::Int) where {D} = 1:(porder+1)^D
 
 # Simplex elements: 3DG uses a different barycentric index ordering than HOM
-function node_order_3dg(m::HighOrderMesh{D,Simplex{D},P}) where {D,P}
+function node_order_3dg(::Simplex{D}, porder::Int) where {D}
+    P = porder
     s3dg = [ (i..., P-sum(i)) for i in Iterators.product(fill(0:P,D)...) if sum(i) <= P ]
     shom = [ (P-sum(i), i...) for i in Iterators.product(fill(0:P,D)...) if sum(i) <= P ]
-    indexin(s3dg, shom)
+    Int.(indexin(s3dg, shom))
 end
+
+node_order_3dg(m::HighOrderMesh) = node_order_3dg(elgeom(m), porder(m))
 
 """
     mshto3dg(m::HighOrderMesh)
@@ -469,8 +472,7 @@ function mshto3dg(m::HighOrderMesh{D,G,P,T}) where {D,G,P,T}
 
     zixmap(i) = i>0 ? i-1 : i
     t2t = [ Cint(zixmap(nb[1])) for nb in m1.nb ]
-    t2n = [ Cint(nb[2] - 1) for nb in m1.nb ]
-    # TODO: Add neighbor face permutation in t2n
+    t2n = [ Cint(nb[1] > 0 ? nb[2] - 1 + 2^4 * (max(nb[3], 1) - 1) + 2^7 : -1) for nb in m1.nb ]
 
     if eltype == 0 # Simplex
         # Simplex node order in 3DG different than HOM
@@ -491,6 +493,80 @@ function mshto3dg(m::HighOrderMesh{D,G,P,T}) where {D,G,P,T}
 
     return (; dim, np, nt, ns, nsbnd, ns0, nv, nf, eltype, porder,
             p, p1, s, sbnd, s0, t, t2t, t2n, ncurved, ecurved, tcurved)
+end
+
+function elgeom_from_3dg(dim::Integer, eltype::Integer)
+    eltype == 0 && return Simplex{dim}()
+    eltype == 1 && return Block{dim}()
+    error("Unsupported 3DG element type $eltype")
+end
+
+function finite_element_from_3dg(eg::ElementGeometry, porder::Int, T::Type, msh3dg)
+    s0 = if hasproperty(msh3dg, :s0)
+        sline = vec(T.(msh3dg.s0))
+        length(sline) == porder + 1 ||
+            error("3DG field s0 has length $(length(sline)); expected $(porder + 1)")
+        sline
+    elseif eg isa Block
+        gauss_lobatto01_nodes(porder + 1, T=T)
+    else
+        T.(equispaced(porder))
+    end
+
+    FiniteElement(eg, s0)
+end
+
+"""
+    mshfrom3dg(msh3dg; unique_nodes=true)
+
+Convert a 3DG mesh-like object back to a `HighOrderMesh`.
+
+`msh3dg` must expose the fields returned by [`mshto3dg`](@ref), including
+`dim`, `nt`, `ns`, `nf`, `eltype`, `porder`, `p1`, `t2t`, and `t2n`. By
+default, coincident DG nodes are deduplicated with `unique_mesh_nodes`; pass
+`unique_nodes=false` to keep one copy of every element-local node.
+"""
+function mshfrom3dg(msh3dg; unique_nodes=true)
+    D      = Int(msh3dg.dim)
+    P      = Int(msh3dg.porder)
+    ns     = Int(msh3dg.ns)
+    nt     = Int(msh3dg.nt)
+    nf     = Int(msh3dg.nf)
+    eg     = elgeom_from_3dg(D, Int(msh3dg.eltype))
+
+    p1raw = Array(msh3dg.p1)
+    T0 = Base.eltype(p1raw)
+    T = T0 <: AbstractFloat ? T0 : Float64
+    p1 = T.(p1raw)
+    size(p1) == (ns, D, nt) ||
+        error("3DG field p1 has size $(size(p1)); expected ($ns, $D, $nt)")
+
+    order = node_order_3dg(eg, P)
+    length(order) == ns ||
+        error("3DG node ordering has length $(length(order)); expected ns=$ns")
+    p1 = p1[invperm(collect(order)), :, :]
+
+    xdg = reshape(permutedims(p1, (1, 3, 2)), ns * nt, D)
+    eldg = reshape(collect(1:(ns * nt)), ns, nt)
+    x, el = unique_nodes ? unique_mesh_nodes(xdg, eldg) : (xdg, eldg)
+
+    t2t = reshape(Int.(Array(msh3dg.t2t)), nf, nt)
+    t2n = reshape(Int.(Array(msh3dg.t2n)), nf, nt)
+
+    nb = Matrix{NeighborData}(undef, nf, nt)
+    for i in eachindex(nb)
+        neighbor = t2t[i]
+        if neighbor >= 0
+            face = (t2n[i] & 0x0f) + 1
+            perm = (t2n[i] & 0x80) == 0 ? 1 : ((t2n[i] >> 4) & 0x07) + 1
+            nb[i] = (Int32(neighbor + 1), Int16(face), Int16(perm))
+        else
+            nb[i] = (Int32(neighbor), Int16(0), Int16(0))
+        end
+    end
+
+    fe = finite_element_from_3dg(eg, P, T, msh3dg)
+    HighOrderMesh{D,typeof(eg),P,T}(fe, x, el, nb)
 end
 
 ## ==============================================================================
