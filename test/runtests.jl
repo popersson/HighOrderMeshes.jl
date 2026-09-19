@@ -359,6 +359,13 @@ end
             @test m42.nb == m2.nb
             @test m2.nb !== m.nb          # no sharing between meshes
         end
+        let m = ex1mesh(eg=Simplex{2}(), nref=1)
+            m3  = set_degree(m, 3)
+            m43 = set_degree(set_degree(m, 4), 3)
+            @test m43.x ≈ m3.x atol=1e-12
+            @test m43.el == m3.el
+            @test m43.nb == m3.nb
+        end
         # Lobatto nodes on blocks, and an explicit node matrix
         m  = set_degree(mshcube(2, 1, 1), 3)
         ml = set_lobatto_nodes(m)
@@ -419,6 +426,50 @@ end
         m_verbose = gmsh2msh(circle)
         m_quiet   = gmsh2msh(circle; verbose=false)
         @test m_verbose.x == m_quiet.x && m_verbose.el == m_quiet.el && m_verbose.nb == m_quiet.nb
+    end
+
+    @testset "Gmsh affine round trip" begin
+        if Sys.which("gmsh") !== nothing
+            # A straight-sided mesh is the affine (tris, tets) or bilinear
+            # (transfinite quads, hexes) image of the reference element, so
+            # the high-order nodes must equal the p=1 interpolation of the
+            # corner nodes.
+            affine_file = joinpath(pkgdir(HighOrderMeshes), "docs", "dev", "gmsh_affine_test.jl")
+            if isfile(affine_file)
+                include(affine_file)
+                geos = (geo_square, geo_square_quads, geo_box, geo_box_hexes)
+            else
+                fallback_square = """
+                    Point(1)={0,0,0}; Point(2)={1,0,0}; Point(3)={1,1,0}; Point(4)={0,1,0};
+                    Line(1)={1,2}; Line(2)={2,3}; Line(3)={3,4}; Line(4)={4,1};
+                    Curve Loop(1)={1,2,3,4}; Plane Surface(1)={1};
+                    """
+                fallback_square_quads = fallback_square *
+                    "Transfinite Curve{1,2,3,4}=4; Transfinite Surface{1}; Recombine Surface{1};\n"
+                fallback_box = """
+                    SetFactory("OpenCASCADE");
+                    Box(1)={0,0,0,1,1,1};
+                    """
+                fallback_box_hexes = """
+                    Point(1)={0,0,0}; Point(2)={1,0,0}; Point(3)={1,1,0}; Point(4)={0,1,0};
+                    Line(1)={1,2}; Line(2)={2,3}; Line(3)={3,4}; Line(4)={4,1};
+                    Curve Loop(1)={1,2,3,4}; Plane Surface(1)={1};
+                    Transfinite Curve{1,2,3,4}=3; Transfinite Surface{1}; Recombine Surface{1};
+                    Extrude {0,0,1} { Surface{1}; Layers{2}; Recombine; };
+                    """
+                geos = (fallback_square, fallback_square_quads, fallback_box, fallback_box_hexes)
+            end
+
+            for geo in geos, p in 1:5
+                m       = gmshstr2msh(geo; porder=p, cmdadd="-v 0")
+                fe      = m.fe
+                xdg     = dg_nodes(m)
+                corners = xdg[corner_nodes(fe), :, :]
+                N1      = shapefcns(elgeom(m), ref_nodes(fe))
+                pred    = interpolate(N1, corners)
+                @test maximum(abs.(pred - xdg)) < 1e-10
+            end
+        end
     end
 
     @testset "CG Poisson (experimental)" begin

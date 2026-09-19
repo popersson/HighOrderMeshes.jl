@@ -62,19 +62,20 @@ end
 
 # Round x to the nearest multiple of scaling*tol to eliminate floating-point
 # noise before comparisons. Adding zero() converts -0.0 → 0.0.
-snap(x::T, scaling=1) where {T <: Real} = x
+snap(x::T, scaling=1, tol=nothing) where {T <: Real} = x
 snap(x::T, scaling=1, tol=sqrt(eps(T))) where {T <: AbstractFloat} =
     scaling * tol * round(x / scaling / tol) + zero(T)
 
 """
-    unique_mesh_nodes(x, el; output_ix=false)
+    unique_mesh_nodes(x, el; tol=sqrt(eps(T)), output_ix=false)
 
 Deduplicate coincident rows in the node coordinate matrix `x` and update the
 element connectivity `el` accordingly. Returns `(x, el)`, or `(x, el, ix)` if
 `output_ix=true`, where `ix` maps new node indices back to rows of the original `x`.
+`tol` is relative to the largest coordinate magnitude in `x`.
 """
-function unique_mesh_nodes(x, el; output_ix=false)
-    xx  = snap.(x, maximum(abs.(x)))  # snap to eliminate floating-point noise
+function unique_mesh_nodes(x, el; tol=sqrt(eps(float(eltype(x)))), output_ix=false)
+    xx  = snap.(x, maximum(abs.(x)), tol)  # snap to eliminate floating-point noise
     xxx = unique(eachrow(xx))
     ix  = Int.(indexin(xxx, eachrow(xx)))  # unique row → original row
     jx  = Int.(indexin(eachrow(xx), xxx))  # original row → unique row
