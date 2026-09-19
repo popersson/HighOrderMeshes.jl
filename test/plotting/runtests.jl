@@ -42,8 +42,12 @@ using HighOrderMeshes
         Makie.plot!(ax, m, u)
         @test length(ax.scene.plots) > nplots1
 
-        # plot(m, u) produces a Colorbar in 2D
+        # plot(m, u) produces a Colorbar in 2D whose limits match the plotted
+        # (interpolated) values, not just the nodal values
         f2 = Makie.plot(m, u)
-        @test any(x -> x isa Makie.Colorbar, f2.content)
+        cbs = filter(x -> x isa Makie.Colorbar, f2.content)
+        @test length(cbs) == 1
+        allu = viz_solution(m, u)[2]
+        @test collect(cbs[1].limits[]) ≈ collect(extrema(allu)) rtol=1e-6
     end
 end

@@ -116,8 +116,10 @@ recipe.
 function Makie.plot(m::HighOrderMesh{D}, u::AbstractArray; kw...) where {D}
     f  = Figure()
     ax = Axis(f[1,1]; aspect = D == 2 ? DataAspect() : nothing)
-    solutionplot!(ax, m, u; kw...)
-    D == 2 && Colorbar(f[1,2], limits=extrema(u))
+    p  = solutionplot!(ax, m, u; kw...)
+    # Attach the colorbar to the mesh plot so that its limits and colormap
+    # match the plotted (interpolated) values, which can overshoot the nodal ones.
+    D == 2 && Colorbar(f[1,2], p.plots[1])
     f
 end
 
