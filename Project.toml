@@ -1,6 +1,6 @@
 name = "HighOrderMeshes"
 uuid = "f18c5c57-76fa-4ade-9d1a-7f3a1f8a4b32"
-version = "0.2.0"
+version = "0.3.0"
 authors = ["Per-Olof Persson <persson@berkeley.edu>"]
 
 [deps]
@@ -10,20 +10,15 @@ StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 
 [weakdeps]
 Makie = "ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a"
-Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
-TriplotRecipes = "808ab39a-a642-4abf-81ff-4cb34ebbffa3"
 
 [extensions]
 HighOrderMeshesMakieExt = "Makie"
-HighOrderMeshesPlotsExt = ["Plots", "TriplotRecipes"]
 
 [compat]
 LinearAlgebra = "1.10"
 Makie = "0.24"
-Plots = "1"
 SparseArrays = "1.10"
 StaticArrays = "1"
-TriplotRecipes = "0.1"
 julia = "1.10"
 
 [extras]

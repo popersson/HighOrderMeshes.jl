@@ -25,11 +25,11 @@ function FEM_precomp(m::HighOrderMesh{D}; quadrature_degree=3*porder(m)) where {
     ns,nel = size(m.el)
     ng = length(gw)
 
-    gϕ = eval_shapefcns(m.fe, gξ, gradient=false)
-    gϕξ = eval_shapefcns(m.fe, gξ, gradient=true)
+    gϕ = shapefcns(m.fe, gξ)
+    gϕξ = dshapefcns(m.fe, gξ)
 
-    gx = eval_field(m.fe, dg_nodes(m), gξ, gradient=false)
-    gxξ = eval_field(m.fe, dg_nodes(m), gξ, gradient=true)
+    gx = interpolate(gϕ, dg_nodes(m))
+    gxξ = interpolate(gϕξ, dg_nodes(m))
     
     gJ = [ SMatrix{D,D}(view(gxξ,ig,iel,:,:)) for ig in 1:ng, iel in 1:nel ]
     gJinv = inv.(gJ)

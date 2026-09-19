@@ -16,7 +16,8 @@ function uniref(m::HighOrderMesh, nref)
     m
 end
 
-function uniref(m::HighOrderMesh{2,G,1,T}) where {G,T}
+function uniref(m::HighOrderMesh{2,G,T}) where {G,T}
+    porder(m) == 1 || error("uniref requires a p=1 mesh; call set_degree(m, 1) first")
     emap   = edgemap(G())
     # Collect and deduplicate all element edges (sorted vertex pairs)
     eledges = sort.([ cel[edge] for edge = eachcol(emap), cel = eachcol(m.el) ])
@@ -47,8 +48,9 @@ function uniref(m::HighOrderMesh{2,G,1,T}) where {G,T}
 
     function mkels(::Block)
         mapc = nx + nedges .+ (1:nel)  # centroid node indices
-        prev = [4,1,2,3]
-        [ [m.el[emap[1,i],:] mapmid[i,:] mapmid[prev[i],:] mapc]' for i = 1:4 ]
+        v1, v2, v3, v4 = (m.el[k,:] for k = 1:4)
+        m1, m2, m3, m4 = (mapmid[j,:] for j = 1:4)
+        [ [v1 m3 m1 mapc]', [m3 v2 mapc m2]', [m1 mapc v3 m4]', [mapc m2 m4 v4]' ]
     end
 
     newel = hcat(mkels(G())...)
@@ -60,19 +62,20 @@ end
 
 # Round x to the nearest multiple of scaling*tol to eliminate floating-point
 # noise before comparisons. Adding zero() converts -0.0 → 0.0.
-snap(x::T, scaling=1) where {T <: Real} = x
+snap(x::T, scaling=1, tol=nothing) where {T <: Real} = x
 snap(x::T, scaling=1, tol=sqrt(eps(T))) where {T <: AbstractFloat} =
     scaling * tol * round(x / scaling / tol) + zero(T)
 
 """
-    unique_mesh_nodes(x, el; output_ix=false)
+    unique_mesh_nodes(x, el; tol=sqrt(eps(T)), output_ix=false)
 
 Deduplicate coincident rows in the node coordinate matrix `x` and update the
 element connectivity `el` accordingly. Returns `(x, el)`, or `(x, el, ix)` if
 `output_ix=true`, where `ix` maps new node indices back to rows of the original `x`.
+`tol` is relative to the largest coordinate magnitude in `x`.
 """
-function unique_mesh_nodes(x, el; output_ix=false)
-    xx  = snap.(x, maximum(abs.(x)))  # snap to eliminate floating-point noise
+function unique_mesh_nodes(x, el; tol=sqrt(eps(float(eltype(x)))), output_ix=false)
+    xx  = snap.(x, maximum(abs.(x)), tol)  # snap to eliminate floating-point noise
     xxx = unique(eachrow(xx))
     ix  = Int.(indexin(xxx, eachrow(xx)))  # unique row → original row
     jx  = Int.(indexin(eachrow(xx), xxx))  # original row → unique row
@@ -96,8 +99,8 @@ function boundary_nodes(m::HighOrderMesh, bndnbrs=nothing)
     nf, nel = size(m.nb)
     nodes = Int64[]
     for iel in 1:nel, j in 1:nf
-        jel, _, _ = m.nb[j,iel]
-        if jel < 1 && (isnothing(bndnbrs) || -jel ∈ bndnbrs)
+        nb = m.nb[j,iel]
+        if isboundary(nb) && (isnothing(bndnbrs) || bndtag(nb) ∈ bndnbrs)
             append!(nodes, m.el[f2n[:,j], iel])
         end
     end
@@ -115,12 +118,12 @@ function set_bnd_numbers!(m::HighOrderMesh, bndexpr)
     f2n     = mkface2nodes(m)
     nf, nel = size(m.nb)
     for iel in axes(m.nb,2), j in axes(m.nb,1)
-        m.nb[j,iel][1] >= 1 && continue  # interior face
+        isboundary(m.nb[j,iel]) || continue  # interior face
         facex  = m.x[m.el[f2n[:,j],iel],:]
         onbnd  = hcat([ snap.(bndexpr(cx)) .== 0 for cx in eachrow(facex) ]...)
         bndnbr = findfirst(all(onbnd, dims=2)[:])
         isnothing(bndnbr) && error("No boundary expression matching boundary face")
-        m.nb[j,iel] = (-bndnbr, 0, 0)
+        m.nb[j,iel] = Neighbor(-bndnbr, 0, 0)
     end
 end
 
@@ -137,7 +140,7 @@ set_bnd_periodic!(msh, (1,2), 1)   # periodic left/right (x)
 set_bnd_periodic!(msh, (3,4), 2)   # periodic bottom/top (y)
 ```
 """
-function set_bnd_periodic!(m::HighOrderMesh{D,G,P,T}, bnds, dir) where {D,G,P,T}
+function set_bnd_periodic!(m::HighOrderMesh{D,G,T}, bnds, dir) where {D,G,T}
     f2n  = mkface2nodes(m)
     fmap = facemap(G())
     corner_el = m.el[corner_nodes(m.fe), :]
@@ -154,15 +157,15 @@ function set_bnd_periodic!(m::HighOrderMesh{D,G,P,T}, bnds, dir) where {D,G,P,T}
 
     dd = Dict{Matrix{T}, NTuple{2,Int}}()
     for iel in axes(m.nb,2), j in axes(m.nb,1)
-        -m.nb[j,iel][1] ∈ bnds || continue
+        bndtag(m.nb[j,iel]) ∈ bnds || continue
         facex = m.x[m.el[f2n[:,j],iel],:]
         key   = sortslices(snap.(facex[:,match_coords]), dims=1)
         if haskey(dd, key)
             iel0, j0 = pop!(dd, key)
             fcx  = m.x[corner_el[fmap[:,j],iel],:]
             fcx0 = m.x[corner_el[fmap[:,j0],iel0],:]
-            m.nb[j,iel]   = (iel0, j0, periodic_face_permutation(fcx, fcx0))
-            m.nb[j0,iel0] = (iel,  j,  periodic_face_permutation(fcx0, fcx))
+            m.nb[j,iel]   = Neighbor(iel0, j0, periodic_face_permutation(fcx, fcx0))
+            m.nb[j0,iel0] = Neighbor(iel,  j,  periodic_face_permutation(fcx0, fcx))
         else
             dd[key] = (iel, j)
         end
