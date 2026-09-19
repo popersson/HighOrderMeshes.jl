@@ -207,13 +207,13 @@ function gmsh2msh(gmsh_fname)
 
         f2n = mkface2nodes(m)
         nf,nel = size(m.nb)
-        m_surf_nodes = [ m.el[f2n[:,j],iel] for j = 1:nf, iel = 1:nel if m.nb[j,iel][1] < 1 ]
-        m_surf_index = [ (j,iel) for j = 1:nf, iel = 1:nel if m.nb[j,iel][1] < 1 ]
+        m_surf_nodes = [ m.el[f2n[:,j],iel] for j = 1:nf, iel = 1:nel if isboundary(m.nb[j,iel]) ]
+        m_surf_index = [ (j,iel) for j = 1:nf, iel = 1:nel if isboundary(m.nb[j,iel]) ]
         sort!.(m_surf_nodes)
 
         surf_map = indexin(m_surf_nodes, eachcol(surf_nodes))
         for i in eachindex(surf_map)
-            m.nb[m_surf_index[i]...] = (-element_tags[surf_loc[surf_map[i]]][tagcol],0,0)
+            m.nb[m_surf_index[i]...] = Neighbor(-element_tags[surf_loc[surf_map[i]]][tagcol],0,0)
         end
     end
     
@@ -470,8 +470,8 @@ function mshto3dg(m::HighOrderMesh{D,G,T}) where {D,G,T}
     t = Cint.(m1.el .- 1)
 
     zixmap(i) = i>0 ? i-1 : i
-    t2t = [ Cint(zixmap(nb[1])) for nb in m1.nb ]
-    t2n = [ Cint(nb[1] > 0 ? nb[2] - 1 + 2^4 * (max(nb[3], 1) - 1) + 2^7 : -1) for nb in m1.nb ]
+    t2t = [ Cint(zixmap(nb.el)) for nb in m1.nb ]
+    t2n = [ Cint(nb.el > 0 ? nb.face - 1 + 2^4 * (max(nb.perm, 1) - 1) + 2^7 : -1) for nb in m1.nb ]
 
     if eltype == 0 # Simplex
         # Simplex node order in 3DG different than HOM
@@ -553,15 +553,15 @@ function mshfrom3dg(msh3dg; unique_nodes=true)
     t2t = reshape(Int.(Array(msh3dg.t2t)), nf, nt)
     t2n = reshape(Int.(Array(msh3dg.t2n)), nf, nt)
 
-    nb = Matrix{NeighborData}(undef, nf, nt)
+    nb = Matrix{Neighbor}(undef, nf, nt)
     for i in eachindex(nb)
         neighbor = t2t[i]
         if neighbor >= 0
             face = (t2n[i] & 0x0f) + 1
             perm = (t2n[i] & 0x80) == 0 ? 1 : ((t2n[i] >> 4) & 0x07) + 1
-            nb[i] = (Int32(neighbor + 1), Int16(face), Int16(perm))
+            nb[i] = Neighbor(Int32(neighbor + 1), Int16(face), Int16(perm))
         else
-            nb[i] = (Int32(neighbor), Int16(0), Int16(0))
+            nb[i] = Neighbor(Int32(neighbor), Int16(0), Int16(0))
         end
     end
 

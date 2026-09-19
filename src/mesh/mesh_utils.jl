@@ -97,8 +97,8 @@ function boundary_nodes(m::HighOrderMesh, bndnbrs=nothing)
     nf, nel = size(m.nb)
     nodes = Int64[]
     for iel in 1:nel, j in 1:nf
-        jel, _, _ = m.nb[j,iel]
-        if jel < 1 && (isnothing(bndnbrs) || -jel ∈ bndnbrs)
+        nb = m.nb[j,iel]
+        if isboundary(nb) && (isnothing(bndnbrs) || bndtag(nb) ∈ bndnbrs)
             append!(nodes, m.el[f2n[:,j], iel])
         end
     end
@@ -116,12 +116,12 @@ function set_bnd_numbers!(m::HighOrderMesh, bndexpr)
     f2n     = mkface2nodes(m)
     nf, nel = size(m.nb)
     for iel in axes(m.nb,2), j in axes(m.nb,1)
-        m.nb[j,iel][1] >= 1 && continue  # interior face
+        isboundary(m.nb[j,iel]) || continue  # interior face
         facex  = m.x[m.el[f2n[:,j],iel],:]
         onbnd  = hcat([ snap.(bndexpr(cx)) .== 0 for cx in eachrow(facex) ]...)
         bndnbr = findfirst(all(onbnd, dims=2)[:])
         isnothing(bndnbr) && error("No boundary expression matching boundary face")
-        m.nb[j,iel] = (-bndnbr, 0, 0)
+        m.nb[j,iel] = Neighbor(-bndnbr, 0, 0)
     end
 end
 
@@ -155,15 +155,15 @@ function set_bnd_periodic!(m::HighOrderMesh{D,G,T}, bnds, dir) where {D,G,T}
 
     dd = Dict{Matrix{T}, NTuple{2,Int}}()
     for iel in axes(m.nb,2), j in axes(m.nb,1)
-        -m.nb[j,iel][1] ∈ bnds || continue
+        bndtag(m.nb[j,iel]) ∈ bnds || continue
         facex = m.x[m.el[f2n[:,j],iel],:]
         key   = sortslices(snap.(facex[:,match_coords]), dims=1)
         if haskey(dd, key)
             iel0, j0 = pop!(dd, key)
             fcx  = m.x[corner_el[fmap[:,j],iel],:]
             fcx0 = m.x[corner_el[fmap[:,j0],iel0],:]
-            m.nb[j,iel]   = (iel0, j0, periodic_face_permutation(fcx, fcx0))
-            m.nb[j0,iel0] = (iel,  j,  periodic_face_permutation(fcx0, fcx))
+            m.nb[j,iel]   = Neighbor(iel0, j0, periodic_face_permutation(fcx, fcx0))
+            m.nb[j0,iel0] = Neighbor(iel,  j,  periodic_face_permutation(fcx0, fcx))
         else
             dd[key] = (iel, j)
         end

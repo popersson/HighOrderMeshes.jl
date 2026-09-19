@@ -26,6 +26,7 @@ using LinearAlgebra, SparseArrays, StaticArrays
 export ElementGeometry, Simplex, Block, dim, name, nvertices, nfaces, nedges, nnodes, vertices
 export facemap, edgemap, subgeom, symmetries
 export HighOrderMesh, dg_nodes, elgeom, porder, nel
+export Neighbor, isboundary, bndtag
 export el2nb, set_ref_nodes, set_degree, set_lobatto_nodes, mkface2nodes
 export uniref, boundary_nodes, set_bnd_numbers!, set_bnd_periodic!, unique_mesh_nodes
 export blockmesh_hypercube, mshhypercube, mshcube, mshsquare, mshline, mshcircle

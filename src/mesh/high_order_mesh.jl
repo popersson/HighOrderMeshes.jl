@@ -1,5 +1,35 @@
-# (neighbor element, neighbor face index, one-based face permutation)
-const NeighborData = Tuple{Int32, Int16, Int16}
+"""
+    Neighbor
+
+Per-face neighbor data stored in `HighOrderMesh.nb`: `el` is the neighbor
+element (`<= 0` for a boundary face, with `-el` the boundary tag), `face` is
+the local face index in the neighbor element (`0` for boundary faces), and
+`perm` is the one-based face permutation matching 3DG's convention (`0` for
+boundary faces).
+"""
+struct Neighbor
+    el::Int32
+    face::Int16
+    perm::Int16
+end
+
+"""
+    isboundary(nb::Neighbor)
+
+Whether `nb` is a boundary face, i.e. has no neighbor element.
+"""
+isboundary(nb::Neighbor) = nb.el <= 0
+
+"""
+    bndtag(nb::Neighbor)
+
+Boundary tag of a boundary face `nb`.
+"""
+bndtag(nb::Neighbor) = -Int(nb.el)
+
+Base.show(io::IO, nb::Neighbor) = isboundary(nb) ?
+    print(io, "Neighbor(boundary $(bndtag(nb)))") :
+    print(io, "Neighbor(el=$(nb.el), face=$(nb.face), perm=$(nb.perm))")
 
 """
     HighOrderMesh{D,G,T}
@@ -11,9 +41,7 @@ mesh has a single element type and a single polynomial degree.
 - `fe`: reference element (degree, reference nodes, shape functions)
 - `x`:  global node coordinates (`nnodes × D`)
 - `el`: element-to-node connectivity (`nnodes_per_elem × nelems`)
-- `nb`: neighbor data per face (`nfaces × nelems`). Interior faces store
-        `(neighbor element, neighbor face, one-based face permutation)`;
-        boundary faces store `(-bnd_number, 0, 0)`.
+- `nb`: neighbor data per face (`nfaces × nelems`), see [`Neighbor`](@ref).
 
 The element-local (DG) node coordinates are `x[el, :]`, see [`dg_nodes`](@ref).
 """
@@ -21,7 +49,7 @@ struct HighOrderMesh{D,G<:ElementGeometry{D},T}
     fe::FiniteElement{D,G,T}
     x::Matrix{T}
     el::Matrix{Int}
-    nb::Matrix{NeighborData}
+    nb::Matrix{Neighbor}
 end
 
 ###########################################################################
@@ -94,8 +122,8 @@ function el2nb(el, eg)
     nv, nel = size(el)
     nfv, nf = size(fmap)
 
-    nb = fill(NeighborData((0,0,0)), nf, nel)
-    dd = Dict{NTuple{nfv,Int}, NeighborData}()
+    nb = fill(Neighbor(0,0,0), nf, nel)
+    dd = Dict{NTuple{nfv,Int}, Neighbor}()
     sizehint!(dd, nel * nf)
     e = fill(0, nfv)
     f = fill(0, nfv)
@@ -106,11 +134,11 @@ function el2nb(el, eg)
             et = Tuple(sort!(e))
             if haskey(dd, et)
                 nbel = pop!(dd, et)
-                f2 = el[fmap[:,nbel[2]], nbel[1]]
-                nb[jf,iel]          = (nbel[1], nbel[2], face_permutation(eg, f, f2))
-                nb[nbel[2],nbel[1]] = (iel, jf, face_permutation(eg, f2, f))
+                f2 = el[fmap[:,nbel.face], nbel.el]
+                nb[jf,iel]           = Neighbor(nbel.el, nbel.face, face_permutation(eg, f, f2))
+                nb[nbel.face,nbel.el] = Neighbor(iel, jf, face_permutation(eg, f2, f))
             else
-                dd[et] = (iel, jf, 0)
+                dd[et] = Neighbor(iel, jf, 0)
             end
         end
     end

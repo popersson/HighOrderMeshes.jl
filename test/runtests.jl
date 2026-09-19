@@ -284,6 +284,15 @@ end
         @test contains(sprint(show, mshsquare(2)), "9 nodes")
     end
 
+    @testset "Neighbor" begin
+        @test Neighbor(2, 1, 3) == Neighbor(2, 1, 3)
+        @test isboundary(Neighbor(-2, 0, 0)) && bndtag(Neighbor(-2, 0, 0)) == 2
+        @test !isboundary(Neighbor(5, 1, 1))
+        @test sizeof(Neighbor) == 8
+        m = mshsquare(2)
+        @test count(isboundary, m.nb) == 8
+    end
+
     @testset "Degree and node-set changes" begin
         # Changing the degree up and down reproduces the same mesh
         for m in (mshsquare(2), ex1mesh(eg=Simplex{2}(), nref=1))
@@ -306,7 +315,7 @@ end
         for mm in (set_degree(mshcube(2,2,2), 3), set_lobatto_nodes(set_degree(mshcube(2,2,2), 4)))
             f2n = mkface2nodes(mm)
             for iel in 1:nel(mm), j in 1:nfaces(elgeom(mm))
-                jel, k, _ = mm.nb[j,iel]
+                jel, k = mm.nb[j,iel].el, mm.nb[j,iel].face
                 jel > 0 || continue
                 @test Set(mm.el[f2n[:,j],iel]) == Set(mm.el[f2n[:,k],jel])
             end
@@ -421,16 +430,16 @@ end
         perm = 5
         t2n[i] = (t2n[i] & 0x0f) + 2^7 + 2^4 * (perm - 1)
         m2 = mshfrom3dg(merge(flds, (; t2n)))
-        @test m2.nb[i][2] == (flds.t2n[i] & 0x0f) + 1
-        @test m2.nb[i][3] == perm
+        @test m2.nb[i].face == (flds.t2n[i] & 0x0f) + 1
+        @test m2.nb[i].perm == perm
     end
 
     @testset "Mesh utilities" begin
         msh = mshsquare(5)
         set_bnd_periodic!(msh, (1,2), 1)    # Periodic left/right (x-direction)
         set_bnd_periodic!(msh, (3,4), 2)    # Periodic bottom/top (y-direction)
-        @test minimum(first.(msh.nb)[:]) == 1  # No actual boundaries
-        @test all(last.(msh.nb)[:] .== 1)
+        @test minimum(getfield.(msh.nb, :el)[:]) == 1  # No actual boundaries
+        @test all(getfield.(msh.nb, :perm)[:] .== 1)
 
         x = [0.0 0.0 0.0
              1.0 0.0 0.0
@@ -442,15 +451,15 @@ end
               3 4
               4 2]
         nb = HighOrderMeshes.el2nb(el, Simplex{3}())
-        @test nb[1,1] == (2, 1, 3)
-        @test nb[1,2] == (1, 1, 2)
+        @test nb[1,1] == Neighbor(2, 1, 3)
+        @test nb[1,2] == Neighbor(1, 1, 2)
 
         msh = mshcube(2, 1, 1)
         oldnb = copy(msh.nb)
         set_bnd_periodic!(msh, (1,2), 1)
-        periodic_faces = findall(i -> oldnb[i][1] < 0 && msh.nb[i][1] > 0, eachindex(msh.nb))
+        periodic_faces = findall(i -> oldnb[i].el < 0 && msh.nb[i].el > 0, eachindex(msh.nb))
         @test !isempty(periodic_faces)
-        @test all(i -> msh.nb[i][3] >= 1, periodic_faces)
+        @test all(i -> msh.nb[i].perm >= 1, periodic_faces)
 
         msh = ex1mesh(nref=1, eg=Block{2}())
         align_with_ldgswitch!(msh)

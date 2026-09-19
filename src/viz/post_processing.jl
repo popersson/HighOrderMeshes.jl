@@ -78,7 +78,7 @@ function viz_mesh(m::HighOrderMesh{2,G,T};
             iface > 1 && (cxy = cxy[2:end, :])  # drop shared endpoint
             push!(elem_lines, cxy)
 
-            jel, _, _ = m.nb[iface, iel]
+            jel = m.nb[iface, iel].el
             0 < jel < iel && continue  # interior edge already added from other side
 
             cxy = curves[iface, iel]

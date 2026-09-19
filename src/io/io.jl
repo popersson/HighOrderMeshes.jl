@@ -84,9 +84,9 @@ function savemesh(fname, m::HighOrderMesh{D,G,T}) where {D,G,T}
         ("ref_nodes", ref_nodes(m.fe)),
         ("x",         m.x),
         ("el",        Matrix{Int64}(m.el)),
-        ("nb_el",     getindex.(m.nb, 1)),
-        ("nb_face",   getindex.(m.nb, 2)),
-        ("nb_perm",   getindex.(m.nb, 3)),
+        ("nb_el",     getfield.(m.nb, :el)),
+        ("nb_face",   getfield.(m.nb, :face)),
+        ("nb_perm",   getfield.(m.nb, :perm)),
     ]
     open(fname, "w") do io
         write(io, hom_magic)
@@ -123,7 +123,7 @@ function loadmesh(fname)
         eg = geometry_types[rec["elgeom"][]]{D}()
         fe = FiniteElement(eg, Matrix{T}(rec["ref_nodes"]))
         el = Matrix{Int}(rec["el"])
-        nb = tuple.(Int32.(rec["nb_el"]), Int16.(rec["nb_face"]), Int16.(rec["nb_perm"]))
+        nb = Neighbor.(Int32.(rec["nb_el"]), Int16.(rec["nb_face"]), Int16.(rec["nb_perm"]))
         HighOrderMesh{D,typeof(eg),T}(fe, x, el, nb)
     end
 end
