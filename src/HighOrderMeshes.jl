@@ -23,17 +23,17 @@ module HighOrderMeshes
 using LinearAlgebra, SparseArrays, StaticArrays
 
 # mesh/
-export ElementGeometry, Simplex, Block, dim, name, nvertices, nfaces, nedges, nnodes, vertices
+export ElementGeometry, Simplex, Block, dim, nvertices, nfaces, nedges, nnodes, vertices
 export facemap, edgemap, subgeom, symmetries
 export HighOrderMesh, dg_nodes, elgeom, porder, nel
 export Neighbor, isboundary, bndtag
-export el2nb, set_ref_nodes, set_degree, set_lobatto_nodes, mkface2nodes
+export set_ref_nodes, set_degree, set_lobatto_nodes, mkface2nodes
 export uniref, boundary_nodes, set_bnd_numbers!, set_bnd_periodic!, unique_mesh_nodes
-export blockmesh_hypercube, mshhypercube, mshcube, mshsquare, mshline, mshcircle
+export mshhypercube, mshcube, mshsquare, mshline, mshcircle
 
 # basis/
 export jacobi, djacobi, legendre, dlegendre, legendre01, dlegendre01
-export polybasis, dpolybasis, multiindices, equispaced, equispaced_nodes, tensor_nodes
+export polybasis, dpolybasis, multiindices, equispaced_nodes, tensor_nodes
 export gauss_legendre_nodes, gauss_legendre01_nodes, gauss_legendre_quadrature, gauss_legendre01_quadrature
 export gauss_lobatto_nodes, gauss_lobatto01_nodes, gauss_lobatto_quadrature, gauss_lobatto01_quadrature
 export quadrature
@@ -42,7 +42,7 @@ export shapefcns, dshapefcns, interpolate
 
 # fem/
 export mkldgswitch, align_with_ldgswitch!
-export FEM_precomp, eval_gϕx
+export FEM_precomp
 export elmat_mass, elmat_laplace, elres_source
 export assemble_matrix, assemble_vector, strong_dirichlet!
 export cg_mass, cg_poisson
@@ -52,7 +52,7 @@ export viz_mesh, viz_solution, mesh_function_type
 
 # io/
 export savemesh, loadmesh
-export mshto3dg, mshfrom3dg, gmsh2msh, rungmsh2msh, gmshstr2msh, vtkwrite
+export mshto3dg, mshfrom3dg, gmsh2msh, rungmsh2msh, gmshstr2msh, gmsh_physical_names, vtkwrite
 
 # mesh/ (element topology, no basis dependency)
 include("mesh/element_geometry.jl")
@@ -65,6 +65,7 @@ include("basis/finite_element.jl")
 include("mesh/high_order_mesh.jl")
 include("mesh/mesh_utils.jl")
 include("mesh/basic_meshes.jl")
+include("mesh/sample_meshes.jl")
 
 # fem/
 include("fem/dg_utils.jl")
@@ -76,7 +77,5 @@ include("viz/post_processing.jl")
 # io/
 include("io/converters.jl")
 include("io/io.jl")
-
-include("../examples/sample_meshes.jl")
 
 end

@@ -37,7 +37,7 @@ message.
 | 5 | Generated Block face and edge tables, edge renumbering, uniref update | implementer | done |
 | 6 | Simplex quadrature rules as a text data file | implementer | done |
 | 7 | Makie extension on the recipe system, precompile workload | implementer | done |
-| 8 | Gmsh physical names, export cleanup, sample meshes into src | implementer | open |
+| 8 | Gmsh physical names, export cleanup, sample meshes into src | implementer | done |
 | 9 | Documenter skeleton and docs workflow | implementer | open |
 | 10 | Remaining tests and small cleanups | implementer | open |
 | 11 | Version bump, changelog, final review | Fable | open |

@@ -410,9 +410,15 @@ end
                               ("circle_quads.msh", Block{2}()),
                               ("square_quads.msh", Block{2}()))
             fullname = joinpath(rootdir, "examples", "gmsh", filename)
-            m = gmsh2msh(fullname)
+            m = gmsh2msh(fullname; verbose=false)
             @test elgeom(m) == eg
         end
+
+        circle = joinpath(rootdir, "examples", "gmsh", "circle_tris.msh")
+        @test gmsh_physical_names(circle) == Dict(1 => "Circle")
+        m_verbose = gmsh2msh(circle)
+        m_quiet   = gmsh2msh(circle; verbose=false)
+        @test m_verbose.x == m_quiet.x && m_verbose.el == m_quiet.el && m_verbose.nb == m_quiet.nb
     end
 
     @testset "CG Poisson (experimental)" begin

@@ -5,9 +5,6 @@
 # :PhysicalNames, :Nodes, :Elements. Used internally by gmsh2msh.
 function parse_gmsh(fname)
     fid = open(fname)
-    if fid == -1
-        error("Can't open file")
-    end
 
     gmsh = Dict()
     
@@ -77,20 +74,43 @@ function parse_gmsh(fname)
         e[:node_numbers][1:length(nn[ii]),ii] = nn[ii]
     end
     gmsh[:Elements] = e
-    
+
     close(fid)
     return gmsh
 end
 
 """
-    gmsh2msh(gmsh_fname)
+    gmsh_physical_names(fname) -> Dict{Int,String}
+
+Physical names of the boundary groups in a Gmsh `.msh` file, keyed by
+physical tag, with the surrounding quotes stripped. A boundary group is one
+whose geometric dimension is one less than the highest dimension among all
+physical groups in the file (the volume/surface dimension of the mesh).
+
+```julia
+gmsh_physical_names(joinpath(pkgdir(HighOrderMeshes), "examples/gmsh/circle_tris.msh"))
+# Dict(1 => "Circle")
+```
+"""
+gmsh_physical_names(fname) = _boundary_physical_names(parse_gmsh(fname)[:PhysicalNames])
+
+function _boundary_physical_names(names)
+    isempty(names) && return Dict{Int,String}()
+    dmax = maximum(d for (d, tag, name) in names)
+    Dict(tag => String(strip(name, '"')) for (d, tag, name) in names if d == dmax - 1)
+end
+
+"""
+    gmsh2msh(gmsh_fname; verbose=true)
 
 Import a Gmsh mesh file (`.msh` format v2.2) and return a `HighOrderMesh`.
 Supports triangles, quads, tetrahedra, and hexahedra at polynomial orders 1–5.
 Boundary tags from Gmsh physical groups are preserved as boundary region numbers
-in `m.nb`. Automatically drops the z-coordinate for 2D meshes.
+in `m.nb`. Automatically drops the z-coordinate for 2D meshes. When `verbose`,
+prints one line per boundary tag found, with its physical name if the file
+gives one (see [`gmsh_physical_names`](@ref)).
 """
-function gmsh2msh(gmsh_fname)
+function gmsh2msh(gmsh_fname; verbose=true)
   
     # GMsh element types
     gmshpnts = [15,15,15,15,15]
@@ -216,8 +236,15 @@ function gmsh2msh(gmsh_fname)
             m.nb[m_surf_index[i]...] = Neighbor(-element_tags[surf_loc[surf_map[i]]][tagcol],0,0)
         end
     end
-    
-    
+
+    if verbose
+        names = _boundary_physical_names(gmsh[:PhysicalNames])
+        for tag in sort(unique(bndtag.(filter(isboundary, m.nb))))
+            label = haskey(names, tag) ? "boundary $tag: \"$(names[tag])\"" : "boundary $tag"
+            println(label)
+        end
+    end
+
     return m
 end
 
