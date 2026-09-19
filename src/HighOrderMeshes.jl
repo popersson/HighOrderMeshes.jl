@@ -58,7 +58,6 @@ export mshto3dg, mshfrom3dg, gmsh2msh, rungmsh2msh, gmshstr2msh, vtkwrite
 include("mesh/element_geometry.jl")
 
 # basis/ (polynomials, quadrature, reference element — depends on element_geometry)
-include("basis/simplex_quadrature.jl")
 include("basis/poly_tools.jl")
 include("basis/finite_element.jl")
 

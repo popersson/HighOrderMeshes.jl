@@ -345,7 +345,8 @@ type `T`.
 
 - `Block`: tensor-product Gauss-Legendre rule on `[0,1]^D` with `cld(p+1, 2)`
   points per direction.
-- `Simplex`: symmetric rules from a table, see `simplex_quadrature`.
+- `Simplex`: symmetric rules tabulated in `simplex_quadrature_rules.txt`,
+  looked up by `(D, p)`. See [`max_quadrature_degree`](@ref).
 
 The weights sum to the volume of the reference element: 1 for blocks and
 `1/factorial(D)` for simplices.
@@ -359,8 +360,45 @@ function quadrature(eg::Block{D}, p::Integer, ::Type{T}=Float64) where {D,T}
     ξ, w
 end
 
+const _simplex_rules = Dict{Tuple{Int,Int},Tuple{Matrix{Float64},Vector{Float64}}}()
+
+# Parse src/basis/simplex_quadrature_rules.txt into _simplex_rules, once.
+function _load_simplex_rules!()
+    file = joinpath(@__DIR__, "simplex_quadrature_rules.txt")
+    open(file) do io
+        for line in eachline(io)
+            startswith(line, "#") && continue
+            isempty(strip(line)) && continue
+            tag, D, p, n = split(line)
+            tag == "rule" || error("Malformed simplex quadrature rule file: $file")
+            D, p, n = parse(Int, D), parse(Int, p), parse(Int, n)
+            ξ = zeros(n, D)
+            w = zeros(n)
+            for i in 1:n
+                vals = parse.(Float64, split(readline(io)))
+                ξ[i, :] = vals[1:D]
+                w[i] = vals[D+1]
+            end
+            _simplex_rules[(D, p)] = (ξ, w)
+        end
+    end
+end
+
+"""
+    max_quadrature_degree(::Simplex{D}) where {D}
+
+Highest polynomial degree for which a tabulated simplex quadrature rule
+exists in dimension `D`.
+"""
+function max_quadrature_degree(::Simplex{D}) where {D}
+    isempty(_simplex_rules) && _load_simplex_rules!()
+    maximum(p for (d, p) in keys(_simplex_rules) if d == D)
+end
+
 function quadrature(::Simplex{D}, p::Integer, ::Type{T}=Float64) where {D,T}
-    ξ, w = simplex_quadrature(SimplexQuadRule{D,p}())
-    # The tabulated weights sum to 1; scale to the reference simplex volume 1/D!
-    T.(ξ), T.(w) ./ factorial(D)
+    isempty(_simplex_rules) && _load_simplex_rules!()
+    haskey(_simplex_rules, (D, p)) ||
+        error("No simplex quadrature rule for D=$D, p=$p; maximum degree is $(max_quadrature_degree(Simplex{D}()))")
+    ξ, w = _simplex_rules[(D, p)]
+    T.(ξ), T.(w)
 end

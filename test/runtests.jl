@@ -215,7 +215,7 @@ end
                 @test w' * monomial(ξ, α) ≈ prod(1 ./ (α .+ 1))
             end
         end
-        for (eg, pmax) in ((Simplex{2}(), 22), (Simplex{3}(), 15)), p in 1:pmax
+        for eg in (Simplex{2}(), Simplex{3}()), p in 1:HOM.max_quadrature_degree(eg)
             D = dim(eg)
             ξ, w = quadrature(eg, p)
             for α in multiindices(eg, p)
@@ -225,6 +225,8 @@ end
         end
         @test eltype(quadrature(Block{2}(), 3, Float32)[2]) == Float32
         @test eltype(quadrature(Simplex{2}(), 3, Float32)[1]) == Float32
+        @test_throws ErrorException quadrature(Simplex{2}(), 1000)
+        @test Base.return_types(quadrature, (Simplex{2}, Int))[1] == Tuple{Matrix{Float64},Vector{Float64}}
 
         # 1D rules
         x,w = gauss_legendre_quadrature(3)
