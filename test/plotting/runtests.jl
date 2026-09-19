@@ -31,5 +31,19 @@ using HighOrderMeshes
 
         m1 = set_degree(mshline(5), 3)
         check_makie(Makie.plot(m1, m1.x))
+
+        # plot! on an existing axis adds to it rather than replacing it
+        f = Makie.Figure()
+        ax = Makie.Axis(f[1,1])
+        nplots0 = length(ax.scene.plots)
+        Makie.plot!(ax, m)
+        @test length(ax.scene.plots) > nplots0
+        nplots1 = length(ax.scene.plots)
+        Makie.plot!(ax, m, u)
+        @test length(ax.scene.plots) > nplots1
+
+        # plot(m, u) produces a Colorbar in 2D
+        f2 = Makie.plot(m, u)
+        @test any(x -> x isa Makie.Colorbar, f2.content)
     end
 end
