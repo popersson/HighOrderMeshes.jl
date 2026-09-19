@@ -34,7 +34,7 @@ message.
 | 2 | FiniteElement redesign: node matrix, conformity check, sub-elements, shapefcns/interpolate | Fable | done |
 | 3 | Degree out of the type parameters, API propagation, .hom v1 redefined, Plots extension removed | Fable | done |
 | 4 | Neighbor struct | implementer | done |
-| 5 | Generated Block face and edge tables, edge renumbering, uniref update | implementer | open |
+| 5 | Generated Block face and edge tables, edge renumbering, uniref update | implementer | done |
 | 6 | Simplex quadrature rules as a text data file | implementer | open |
 | 7 | Makie extension on the recipe system, precompile workload | implementer | open |
 | 8 | Gmsh physical names, export cleanup, sample meshes into src | implementer | open |

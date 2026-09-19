@@ -48,8 +48,9 @@ function uniref(m::HighOrderMesh{2,G,T}) where {G,T}
 
     function mkels(::Block)
         mapc = nx + nedges .+ (1:nel)  # centroid node indices
-        prev = [4,1,2,3]
-        [ [m.el[emap[1,i],:] mapmid[i,:] mapmid[prev[i],:] mapc]' for i = 1:4 ]
+        v1, v2, v3, v4 = (m.el[k,:] for k = 1:4)
+        m1, m2, m3, m4 = (mapmid[j,:] for j = 1:4)
+        [ [v1 m3 m1 mapc]', [m3 v2 mapc m2]', [m1 mapc v3 m4]', [mapc m2 m4 v4]' ]
     end
 
     newel = hcat(mkels(G())...)

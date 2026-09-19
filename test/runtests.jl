@@ -91,6 +91,60 @@ end
         @test_throws ErrorException facemap(Simplex{1}())
     end
 
+    @testset "Generated geometry tables" begin
+        # Hand-written tables before the extrusion-based generation, copied
+        # verbatim as a regression check.
+        @test facemap(Block{2}()) == [3 2 1 4; 1 4 2 3]
+        @test facemap(Block{3}()) == [3 2 1 4 3 5; 1 4 2 3 4 6; 7 6 5 8 1 7; 5 8 6 7 2 8]
+
+        @test edgemap(Block{2}()) == facemap(Block{2}())
+        @test edgemap(Simplex{2}()) == facemap(Simplex{2}())
+        @test edgemap(Block{3}()) == [1 3 5 7 1 2 5 6 1 2 3 4; 2 4 6 8 3 4 7 8 5 6 7 8]
+
+        for D in 1:4
+            v, fmap = vertices(Block{D}()), facemap(Block{D}())
+            @test size(fmap) == (2^(D-1), 2D)
+            for d in 1:D, side in 0:1
+                @test all(v[fmap[:, 2d-1+side], d] .== side)
+            end
+        end
+
+        # Orientation: det([n; a_1; ...; a_{D-1}]) > 0, where n is the outward
+        # unit normal of the face and a_k = v_{k+1} - v_1 are its local axes
+        # (v_1, ..., v_{2^{D-1}} being the face's vertex list).
+        function block_face_sign(D, j)
+            d, side = (j + 1) ÷ 2, (j - 1) % 2
+            v, fmap = vertices(Block{D}()), facemap(Block{D}())
+            vf = v[fmap[:, j], :]
+            n  = zeros(D); n[d] = side == 0 ? -1 : 1
+            axs = [vf[k+1, :] .- vf[1, :] for k in 1:D-1]
+            sign(det(vcat(n', reduce(hcat, axs; init=zeros(D,0))')))
+        end
+        function simplex_face_sign(D, i)
+            v, fmap = vertices(Simplex{D}()), facemap(Simplex{D}())
+            vf  = v[fmap[:, i], :]
+            n   = vec(sum(vf, dims=1))/size(vf,1) .- v[i, :]   # opposite vertex -> face centroid
+            axs = [vf[k+1, :] .- vf[1, :] for k in 1:D-1]
+            sign(det(vcat(n', reduce(hcat, axs; init=zeros(D,0))')))
+        end
+        for D in 2:3, j in 1:2D
+            @test block_face_sign(D, j) > 0
+        end
+        for D in 2:3, i in 1:D+1
+            @test simplex_face_sign(D, i) > 0
+            @test sort(facemap(Simplex{D}())[:, i]) == setdiff(1:D+1, i)   # opposite vertex
+        end
+
+        @test nel(uniref(mshsquare(2), 1)) == 16
+        let m = uniref(mshsquare(2), 1)
+            v1, v2, v3, v4 = (m.x[m.el[k,:],:] for k in 1:4)
+            area(a, b, c) = ((b[:,1].-a[:,1]).*(c[:,2].-a[:,2]) .- (c[:,1].-a[:,1]).*(b[:,2].-a[:,2]))/2
+            @test all(area(v1,v2,v4) .+ area(v1,v4,v3) .> 0)
+        end
+        @test length(boundary_nodes(set_degree(uniref(mshsquare(2), 2), 2))) ==
+              length(boundary_nodes(set_degree(mshsquare(8), 2)))
+    end
+
     @testset "Polynomials" begin
         # Closed forms
         for x in (-0.7, 0.0, 0.3, 1.0)
