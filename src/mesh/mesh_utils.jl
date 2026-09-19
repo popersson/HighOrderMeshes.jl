@@ -16,7 +16,8 @@ function uniref(m::HighOrderMesh, nref)
     m
 end
 
-function uniref(m::HighOrderMesh{2,G,1,T}) where {G,T}
+function uniref(m::HighOrderMesh{2,G,T}) where {G,T}
+    porder(m) == 1 || error("uniref requires a p=1 mesh; call set_degree(m, 1) first")
     emap   = edgemap(G())
     # Collect and deduplicate all element edges (sorted vertex pairs)
     eledges = sort.([ cel[edge] for edge = eachcol(emap), cel = eachcol(m.el) ])
@@ -137,7 +138,7 @@ set_bnd_periodic!(msh, (1,2), 1)   # periodic left/right (x)
 set_bnd_periodic!(msh, (3,4), 2)   # periodic bottom/top (y)
 ```
 """
-function set_bnd_periodic!(m::HighOrderMesh{D,G,P,T}, bnds, dir) where {D,G,P,T}
+function set_bnd_periodic!(m::HighOrderMesh{D,G,T}, bnds, dir) where {D,G,T}
     f2n  = mkface2nodes(m)
     fmap = facemap(G())
     corner_el = m.el[corner_nodes(m.fe), :]

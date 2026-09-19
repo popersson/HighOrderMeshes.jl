@@ -28,12 +28,12 @@ in `colors[1..3]`. Optional `labels` may include `:nodes` (scatter the global
 nodes) and/or `:elements` (annotate each element with its index).
 `reltol`, `abstol`, `maxref` are forwarded to `viz_mesh` for curved-edge refinement.
 """
-function Makie.plot(m::HighOrderMesh{2,G,P,T};
+function Makie.plot(m::HighOrderMesh{2,G,T};
     labels=(),
     reltol=1e-3, abstol=Inf, maxref=6,
     colors=(meshgreen, :black, :blue, :darkgray, :darkblue)
     # colors: (element fill, interior edges, boundary edges, nodes, vertices)
-) where {G,P,T}
+) where {G,T}
     elem_lines, int_lines, bnd_lines, elem_mid =
         viz_mesh(m; reltol, abstol, maxref)
 
@@ -70,8 +70,8 @@ Plot the FEM solution `u` on mesh `m`.
 `nsub` controls sub-element refinement (default: `1` for `p=1`, `3p` otherwise).
 Note: contour lines are not supported in Makie.
 """
-function Makie.plot(m::HighOrderMesh{D,G,P,T}, u::Array{T};
-                    nsub=nothing, mesh_edges=false, contours=0) where {D,G,P,T}
+function Makie.plot(m::HighOrderMesh{D,G,T}, u::Array{T};
+                    nsub=nothing, mesh_edges=false, contours=0) where {D,G,T}
     allx, allu, allel = viz_solution(m, u; nsub)
 
     if D == 1

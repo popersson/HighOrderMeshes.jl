@@ -1,75 +1,101 @@
 ###########################################################################
 ## Binary .hom format
 #
-# File layout (version "HOM_v1"):
-#   [6 bytes]  magic header "HOM_v1"
-#   [Int64]    D  (spatial dimension)
-#   [Int64]    P  (polynomial order)
-#   [UInt8]    geometry index into geometry_types
-#   [UInt8]    type index into coordinate_types
-#   [Int64 + data]  1D reference nodes (length + values)
-#   [2×Int64 + data] x  (nnodes × D coordinate matrix)
-#   [2×Int64 + data] el (nnodes_per_elem × nelems, stored as Int64)
-#   [2×Int64 + data] nb (nfaces × nelems NeighborData matrix)
+# A .hom file is a sequence of named arrays ("records") stored as raw
+# little-endian binary. It is self-describing and readable from any language
+# with a few lines of code:
 #
-# geometry_types:   [Simplex, Block]
-# coordinate_types: [Float64, Float32, Float16, BigFloat]
+#   [8 bytes]         magic string "HOMESHv1"
+#   [Int64]           number of records
+#   then, for each record:
+#     [Int64]         length of the name in bytes
+#     [bytes]         name (ASCII)
+#     [Int64]         element type code (see hom_type_codes)
+#     [Int64]         number of dimensions (0 for a scalar)
+#     [Int64 × ndims] shape
+#     [data]          elements in column-major order
+#
+# Type codes: 1 Float64, 2 Float32, 3 Float16, 11 Int64, 12 Int32, 13 Int16, 14 UInt8.
+#
+# Records written by savemesh (D = spatial dimension, ns = nodes per element,
+# nf = faces per element, T = coordinate type):
+#
+#   elgeom     Int64  scalar        1 = Simplex, 2 = Block
+#   ref_nodes  T      ns × D        reference nodes of the FiniteElement
+#   x          T      nnodes × D    node coordinates
+#   el         Int64  ns × nel      element-to-node table (one-based)
+#   nb_el      Int32  nf × nel      neighbor element (<= 0: boundary face with tag -value)
+#   nb_face    Int16  nf × nel      neighbor face index
+#   nb_perm    Int16  nf × nel      neighbor face permutation
+#
+# The polynomial degree follows from the number of reference nodes. Readers
+# must ignore records they do not know, so that records can be added later.
 
-const coordinate_types = [Float64, Float32, Float16, BigFloat]
+const hom_magic = "HOMESHv1"
+const hom_type_codes = Dict{Int64,DataType}(
+    1 => Float64, 2 => Float32, 3 => Float16,
+    11 => Int64, 12 => Int32, 13 => Int16, 14 => UInt8)
+const hom_code_of = Dict{DataType,Int64}(v => k for (k, v) in hom_type_codes)
+
+const _little_endian = Base.ENDIAN_BOM == 0x04030201
+
+function write_record(io::IO, name::AbstractString, a::AbstractArray)
+    code = get(hom_code_of, eltype(a), nothing)
+    isnothing(code) && error("Unsupported element type $(eltype(a)) for .hom record \"$name\"")
+    write(io, htol(Int64(ncodeunits(name))))
+    write(io, name)
+    write(io, htol(Int64(code)))
+    write(io, htol(Int64(ndims(a))))
+    for s in size(a)
+        write(io, htol(Int64(s)))
+    end
+    data = a isa Array ? a : collect(a)
+    write(io, _little_endian ? data : htol.(data))
+    nothing
+end
+
+function read_record(io::IO)
+    n    = ltoh(read(io, Int64))
+    name = String(read(io, n))
+    code = ltoh(read(io, Int64))
+    T    = get(hom_type_codes, code, nothing)
+    isnothing(T) && error("Unknown element type code $code for .hom record \"$name\"")
+    nd    = Int(ltoh(read(io, Int64)))
+    shape = ntuple(_ -> Int(ltoh(read(io, Int64))), nd)
+    a = Array{T,nd}(undef, shape)
+    read!(io, a)
+    _little_endian || (a .= ltoh.(a))
+    name, a
+end
 
 """
     savemesh(fname, m::HighOrderMesh)
 
-Save `m` to a binary `.hom` file. The format stores all mesh data needed to
-exactly reconstruct the mesh, including geometry type, polynomial order,
-reference nodes, coordinates, connectivity, and neighbor data.
-Use `loadmesh` to read it back.
+Save `m` to a binary `.hom` file. The format stores everything needed to
+reconstruct the mesh exactly: geometry type, reference nodes, coordinates,
+connectivity and neighbor data, as named little-endian arrays (see the
+header of `io.jl` for the layout). Use `loadmesh` to read it back.
 """
-function savemesh(fname, m::HighOrderMesh{D,G,P,T}) where {D,G,P,T}
+function savemesh(fname, m::HighOrderMesh{D,G,T}) where {D,G,T}
+    geo_id = findfirst(==(Base.typename(G).wrapper), geometry_types)
+    isnothing(geo_id) && error("Unsupported geometry type: $G. Add to geometry_types.")
+    records = [
+        ("elgeom",    fill(Int64(geo_id))),
+        ("ref_nodes", ref_nodes(m.fe)),
+        ("x",         m.x),
+        ("el",        Matrix{Int64}(m.el)),
+        ("nb_el",     getindex.(m.nb, 1)),
+        ("nb_face",   getindex.(m.nb, 2)),
+        ("nb_perm",   getindex.(m.nb, 3)),
+    ]
     open(fname, "w") do io
-        write(io, "HOM_v1") # Magic Header
-
-        # --- 1. METADATA (D, P, Geometry) ---
-        write(io, Int64(D))
-        write(io, Int64(P))
-
-        # Identify Geometry: Block{2} -> Block
-        base_geo = Base.typename(G).wrapper
-        geo_id = findfirst(==(base_geo), geometry_types)
-        
-        if isnothing(geo_id)
-            error("Unsupported geometry type: $G. Add to geometry_types.")
+        write(io, hom_magic)
+        write(io, htol(Int64(length(records))))
+        for (name, a) in records
+            write_record(io, name, a)
         end
-        write(io, UInt8(geo_id))
-
-        # --- 2. DATA TYPE (T) ---
-        type_id = findfirst(==(T), coordinate_types)
-        if isnothing(type_id)
-            error("Unsupported coordinate type: $T. Add to coordinate_types.")
-        end
-        write(io, UInt8(type_id))
-
-        # --- 3. REF NODES ---
-        ref = m.fe.ref_nodes[1]
-        write(io, Int64(length(ref)))
-        write(io, ref)
-
-        # --- 4. COORDINATES (x) ---
-        write(io, Int64(size(m.x, 1)))
-        write(io, Int64(size(m.x, 2)))
-        write(io, m.x)
-
-        # --- 5. CONNECTIVITY (el) ---
-        # Convert to Int64 for robustness between e.g. 32/64 bit OS
-        write(io, Int64(size(m.el, 1)))
-        write(io, Int64(size(m.el, 2)))
-        write(io, Matrix{Int64}(m.el))
-
-        # --- 6. NEIGHBORS (nb) ---
-        write(io, Int64(size(m.nb, 1)))
-        write(io, Int64(size(m.nb, 2)))
-        write(io, m.nb) 
     end
+    nothing
 end
 
 """
@@ -79,66 +105,31 @@ Load a `HighOrderMesh` from a binary `.hom` file previously written by `savemesh
 """
 function loadmesh(fname)
     open(fname, "r") do io
-        # 1. Header Check
-        header = String(read(io, 6))
-        if header != "HOM_v1"
-            error("Invalid file format: $header")
+        magic = String(read(io, ncodeunits(hom_magic)))
+        magic == hom_magic || error("Not a .hom file: bad magic string \"$magic\"")
+        nrec = ltoh(read(io, Int64))
+        rec  = Dict{String,Any}()
+        for _ in 1:nrec
+            name, a = read_record(io)
+            rec[name] = a
+        end
+        for key in ("elgeom", "ref_nodes", "x", "el", "nb_el", "nb_face", "nb_perm")
+            haskey(rec, key) || error("Missing record \"$key\" in .hom file")
         end
 
-        # 2. Read Metadata
-        D = read(io, Int64)
-        P = read(io, Int64)
-        geo_id = read(io, UInt8)
-
-        # Reconstruct the Geometry Type G (e.g., Simplex{D})
-        if geo_id > length(geometry_types)
-            error("Unknown geometry ID: $geo_id")
-        end
-        base_geo = geometry_types[geo_id] # e.g., Simplex
-        G = base_geo{D}                   # e.g., Simplex{2}
-
-        # 3. Read Type T
-        type_id = read(io, UInt8)
-        if type_id > length(coordinate_types)
-            error("Unknown coordinate type ID: $type_id")
-        end
-        T = coordinate_types[type_id]
-
-        # 4. Read ref_nodes
-        n_ref = read(io, Int64)
-        ref = Vector{T}(undef, n_ref)
-        read!(io, ref)
-
-        # 5. Read x
-        nx_rows = read(io, Int64)
-        nx_cols = read(io, Int64)
-        x = Matrix{T}(undef, nx_rows, nx_cols)
-        read!(io, x)
-
-        # 6. Read el (Always read as Int64, then cast to system Int)
-        nel_rows = read(io, Int64)
-        nel_cols = read(io, Int64)
-        el_raw = Matrix{Int64}(undef, nel_rows, nel_cols)
-        read!(io, el_raw)
-        el = Matrix{Int}(el_raw) # Convert to system Int (usually Int64)
-
-        # 7. Read nb
-        nnb_rows = read(io, Int64)
-        nnb_cols = read(io, Int64)
-        nb = Matrix{NeighborData}(undef, nnb_rows, nnb_cols)
-        read!(io, nb)
-
-        # Create the HighOrderMesh structure
-        fe = FiniteElement(G(), ref)
-        HighOrderMesh{D,G,P,T}(fe, x, el, nb)
+        x  = rec["x"]
+        D  = size(x, 2)
+        T  = eltype(x)
+        eg = geometry_types[rec["elgeom"][]]{D}()
+        fe = FiniteElement(eg, Matrix{T}(rec["ref_nodes"]))
+        el = Matrix{Int}(rec["el"])
+        nb = tuple.(Int32.(rec["nb_el"]), Int16.(rec["nb_face"]), Int16.(rec["nb_perm"]))
+        HighOrderMesh{D,typeof(eg),T}(fe, x, el, nb)
     end
 end
 
 ###########################################################################
-## ASCII .txt format (legacy, incomplete)
-#
-# Simple space-delimited text format. Does not store polynomial order,
-# reference nodes, or neighbor data — use .hom for full round-trips.
+## Text helpers (used by the VTK writer)
 
 # Write matrix `x` to an open IO stream, one row per line, space-separated.
 function write_matrix(f, x)
@@ -147,44 +138,3 @@ function write_matrix(f, x)
         println(f)
     end
 end
-
-# Read a space-separated matrix from an open IO stream into pre-allocated `x`.
-function read_matrix!(f, x)
-    for i = 1:size(x,1)
-        x[i,:] = parse.(eltype(x), split(readline(f), ' ')[1:size(x,2)])
-    end
-end
-
-"""
-    savemeshtxt(fname, m::HighOrderMesh)
-
-Save the node coordinates and element connectivity of `m` to a plain-text
-`.txt` file. Only stores `x` and `el`; polynomial order, reference nodes,
-and neighbor data are not saved. Use `savemesh` / `loadmesh` for full round-trips.
-"""
-function savemeshtxt(fname, m::HighOrderMesh)
-    open(fname, "w") do f
-        println(f, "$(size(m.x,1)) $(size(m.el,2)) $(size(m.el,1))  # nnodes nelems nnodes_per_elem")
-        write_matrix(f, m.x)
-        write_matrix(f, m.el')
-    end
-end
-
-"""
-    loadmeshtxt(fname) -> HighOrderMesh
-
-Load a mesh from a plain-text `.txt` file written by `savemeshtxt`.
-Returns a linear (`p=1`) `HighOrderMesh`; neighbor data is recomputed from connectivity.
-"""
-function loadmeshtxt(fname)
-    open(fname, "r") do f
-        line = split(readline(f), ' ')
-        nx, nel, ne = parse.(Int64, line[1:3])
-        x  = zeros(Float64, nx, 2)
-        el = zeros(Int64, nel, ne)
-        read_matrix!(f, x)
-        read_matrix!(f, el)
-        HighOrderMesh(x, el')
-    end
-end
-

@@ -57,7 +57,7 @@ mkldgswitch(m::HighOrderMesh) = mkldgswitch(elgeom(m), m.nb)
 ## Node/face reordering for LDG compatibility
 
 """
-    align_with_ldgswitch!(m::HighOrderMesh{2,Block{2},P}, sw=nothing)
+    align_with_ldgswitch!(m::HighOrderMesh{2,Block{2}}, sw=nothing)
 
 Reorder element nodes and neighbor data in-place so that the local node
 numbering of each 2D quad element is consistent with the LDG switch `sw`.
@@ -67,7 +67,8 @@ The four possible switch patterns `[s1,s2,s3,s4] ∈ {0,1}^4` on the four faces
 correspond to four 90° rotations of the reference element. This function
 applies the appropriate rotation to `m.el` and updates `m.nb` accordingly.
 """
-function align_with_ldgswitch!(m::HighOrderMesh{2,Block{2},P}, sw=nothing) where P
+function align_with_ldgswitch!(m::HighOrderMesh{2,Block{2}}, sw=nothing)
+    P  = porder(m)
     sw = isnothing(sw) ? mkldgswitch(m) : sw
 
     # The four distinct switch patterns on a quad's faces, one per rotation

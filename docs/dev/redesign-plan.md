@@ -30,9 +30,9 @@ message.
 | Step | Title | Owner | Status |
 |---|---|---|---|
 | 0 | Tag v0.2.0, create branch, write plan and CLAUDE.md | Fable | done |
-| 1 | Polynomial tools: scalar functions, Koornwinder basis, quadrature semantics | Fable | in progress |
-| 2 | FiniteElement redesign: node matrix, conformity check, sub-elements, shapefcns/interpolate | Fable | in progress |
-| 3 | Degree out of the type parameters, API propagation, .hom v1 redefined, Plots extension removed | Fable | in progress |
+| 1 | Polynomial tools: scalar functions, Koornwinder basis, quadrature semantics | Fable | done |
+| 2 | FiniteElement redesign: node matrix, conformity check, sub-elements, shapefcns/interpolate | Fable | done |
+| 3 | Degree out of the type parameters, API propagation, .hom v1 redefined, Plots extension removed | Fable | done |
 | 4 | Neighbor struct | implementer | open |
 | 5 | Generated Block face and edge tables, edge renumbering, uniref update | implementer | open |
 | 6 | Simplex quadrature rules as a text data file | implementer | open |
@@ -90,8 +90,10 @@ equispaced(p)                    # (0:p) // p
 equispaced_nodes(eg, p)          # nnodes × D matrix of rationals, in the canonical node order
 tensor_nodes(eg::Block, s1)      # tensor product of a 1D node line
 
-gauss_legendre_nodes(n; T), gauss_legendre_quadrature(n; T), and the 01 and lobatto variants (unchanged names)
-quadrature(eg, p; T=Float64)     # (ξ, w) exact for polynomials of degree p, for both geometries
+gauss_legendre_nodes(n, T=Float64), gauss_legendre_quadrature(n, T=Float64), and the 01 and lobatto variants
+quadrature(eg, p, T=Float64)     # (ξ, w) exact for polynomials of degree p, for both geometries
+                                 # (the number type is a positional argument: a type passed as a keyword
+                                 #  is not visible to inference)
 ```
 
 Canonical node order: iterate multi-indices `(i_1, ..., i_D)` with `i_1`
@@ -183,7 +185,20 @@ Hesthaven and Warburton formulas without the normalization constants so that
 exact number types keep working. Gradients use the singularity-free form of
 the same reference. `quadrature(eg::Block, p)` now uses `cld(p+1, 2)` Gauss
 points per direction so that `p` means degree of exactness for both
-geometries. `find_elgeom(D, P, nnodes)` was removed.
+geometries. The tabulated simplex weights sum to 1; `quadrature` rescales
+them by `1/factorial(D)` so that weights sum to the reference volume for
+both geometries, which is what `FEM_precomp` assumes when it multiplies by
+the Jacobian. `find_elgeom(D, P, nnodes)` was removed. The number type is a
+positional argument (`gauss_legendre_nodes(n, Float32)`) because a type
+passed as a keyword is invisible to inference.
+
+Findings about the tabulated simplex rules, recorded for step 6: the
+triangle rule for degree 19 is accurate to about 1.4e-12 while all others
+reach 1e-13; the tetrahedron rules for degrees 14 and 15 (330 points) contain
+a negative weight of about -1.2 relative to a total of 1, which is a poor
+rule. Replacing those two with positive-weight rules from the literature is
+a good follow-up once the rules live in a data file, but it is not part of
+step 6.
 
 ### Step 2. FiniteElement redesign (done)
 
@@ -331,12 +346,15 @@ Files: `src/basis/simplex_quadrature.jl` (to be deleted), a new
    ...
    ```
    Write numbers with `repr` so that no digits are lost. Rules for `D = 1`
-   are not written.
+   are not written. Write the weights as `quadrature(Simplex{D}(), p)`
+   returns them, i.e. summing to the reference simplex volume `1/factorial(D)`
+   (the current Julia tables sum to 1 and `quadrature` rescales them; after
+   this step no rescaling happens in `quadrature`).
 2. Delete `simplex_quadrature.jl` and its include. In `poly_tools.jl` add
    ```julia
    const _simplex_rules = Dict{Tuple{Int,Int},Tuple{Matrix{Float64},Vector{Float64}}}()
    function _load_simplex_rules!()   # parses the text file once, fills the Dict
-   function quadrature(::Simplex{D}, p; T=Float64) where {D}
+   function quadrature(::Simplex{D}, p::Integer, ::Type{T}=Float64) where {D,T}
        isempty(_simplex_rules) && _load_simplex_rules!()
        haskey(_simplex_rules, (D, p)) || error("No simplex quadrature rule for D=$D, p=$p; maximum degree is $(max_quadrature_degree(Simplex{D}()))")
        ξ, w = _simplex_rules[(D, p)]
@@ -350,10 +368,11 @@ Files: `src/basis/simplex_quadrature.jl` (to be deleted), a new
 3. Tests. Replace the quadrature part of the "Polynomials" testset:
    - For `D in 2:3` and every available `p`: integrate every monomial
      `ξ^α` with `sum(α) <= p` against the exact value
-     `prod(factorial.(α)) / factorial(sum(α) + D)` with `rtol = 1e-12`.
+     `prod(factorial.(big.(α))) / factorial(big(sum(α) + D))` with `atol = 1e-11`
+     (the tabulated rules are accurate to about 1e-12 in absolute terms).
    - For `Block{D}`, `D in 1:3`, `p in 1:12`: same monomial test with exact
      value `prod(1 ./ (α .+ 1))`, and `length(w) == cld(p+1, 2)^D`.
-   - `eltype(quadrature(Simplex{2}(), 4; T=Float32)[1]) == Float32`.
+   - `eltype(quadrature(Simplex{2}(), 4, Float32)[1]) == Float32`.
    - `@test_throws ErrorException quadrature(Simplex{2}(), 1000)`.
    - `Base.return_types(quadrature, (Simplex{2}, Int))[1] == Tuple{Matrix{Float64}, Vector{Float64}}`.
 

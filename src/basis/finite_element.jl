@@ -2,123 +2,251 @@
 ## FiniteElement
 
 """
-    FiniteElement{D,G,P,T}
+    FiniteElement{D,G,T}
 
-Reference element of dimension `D`, geometry `G`, polynomial order `P`, and
-floating-point type `T`. Stores tensor-product reference nodes and the
-pre-factored inverse Vandermonde matrices used for shape function evaluation.
+Lagrange reference element of dimension `D` on geometry `G` with number type
+`T`, used for the geometry map of a `HighOrderMesh`. Stores the polynomial
+degree `p`, the reference nodes (`nnodes × D`) and the inverse Vandermonde
+matrix `coeff`, so that `shapefcns(ξ) = polybasis(ξ) * coeff`.
+
+Reference nodes must form a conforming node set: contain the vertices, be
+invariant under all symmetries of the reference element, and be unisolvent;
+see [`check_conforming`](@ref).
 """
-struct FiniteElement{D,G<:ElementGeometry{D},P,T}
-    ref_nodes::NTuple{D, Matrix{T}}      # ref_nodes[d]: nodes on d-dim sub-geometry
-    shapefcn_coeff::NTuple{D, Matrix{T}} # inv(Vandermonde), one per dimension
-end
-
-# Accessors
-elgeom(::FiniteElement{D,G,P,T}) where {D,G,P,T} = G()
-dim(::FiniteElement{D,G,P,T}) where {D,G,P,T} = D
-porder(::FiniteElement{D,G,P,T}) where {D,G,P,T} = P
-name(::FiniteElement{D,G,P,T}) where {D,G,P,T} = "p=$(P) " * name(G())
-
-"""Return reference nodes for the `dim`-dimensional sub-geometry."""
-ref_nodes(fe::FiniteElement{D,G,P,T}, dim) where {D,G,P,T} =
-    dim == 0 ? zeros(T,1,0) : fe.ref_nodes[dim]
-
-"""Number of nodes on the `dims`-dimensional sub-geometry (defaults to full element)."""
-nbr_ho_nodes(fe::FiniteElement{D}, dims=D) where {D} = size(ref_nodes(fe,dims),1)
-
-"""Indices of the linear corner nodes within the high-order node set."""
-function corner_nodes(fe::FiniteElement{D,G,P,T}) where {D,G,P,T}
-    fe1 = FiniteElement(G(), 1)
-    indexin(eachrow(ref_nodes(fe1,D)), eachrow(ref_nodes(fe,D)))
-end
-
-function Base.show(io::IO, fe::FiniteElement)
-    print(io, "FiniteElement: $(dim(fe))D, $(name(fe)) element")
+struct FiniteElement{D,G<:ElementGeometry{D},T}
+    p::Int
+    nodes::Matrix{T}
+    coeff::Matrix{T}
 end
 
 ###########################################################################
 ## Constructors
 
 """
-    FiniteElement(eg::ElementGeometry{D}, sline::AbstractVector{T})
+    FiniteElement(eg::ElementGeometry, nodes::AbstractMatrix; check=true)
     FiniteElement(eg::ElementGeometry, p::Int, T=Float64)
+    FiniteElement(eg::Block, s1::AbstractVector)
 
-Construct a `FiniteElement` on geometry `eg`.
+Construct a reference element on geometry `eg`:
 
-- First form: use the 1D node distribution `sline` (length `p+1`) to build
-  tensor-product reference nodes and invert the Vandermonde matrix.
-- Second form: use equispaced nodes of polynomial order `p`.
+- from an explicit `nnodes × D` node matrix; the degree is inferred from the
+  node count and the node set is validated with [`check_conforming`](@ref)
+  unless `check=false`;
+- with equispaced nodes of degree `p`;
+- for blocks, from the tensor product of a symmetric 1D node line `s1` of
+  length `p+1` (for example `gauss_lobatto01_nodes(p+1)`).
 """
-function FiniteElement(eg::ElementGeometry{D}, sline::AbstractVector{T}) where {D,T}
-    p = length(sline) - 1
-    nodes  = Tuple( ref_nodes(subgeom(eg,d), sline) for d in 1:D )
-    coeffs = Tuple( inv(eval_poly(eg, nodes[d], p)) for d in 1:D )
-    FiniteElement{D,typeof(eg),p,T}(nodes, coeffs)
+function FiniteElement(eg::ElementGeometry{D}, nodes::AbstractMatrix; check::Bool=true) where {D}
+    p = _degree_from_nnodes(eg, size(nodes, 1))
+    _finite_element(eg, p, nodes, check)
 end
 
-FiniteElement(eg::ElementGeometry, p::Int, T=Float64) = FiniteElement(eg, T.(equispaced(p)))
+FiniteElement(eg::ElementGeometry, p::Integer, ::Type{T}=Float64) where {T} =
+    _finite_element(eg, p, T.(equispaced_nodes(eg, p)), false)
 
-# Evaluate the polynomial basis for this element at points s.
-eval_poly(::FiniteElement{D,G,P,T}, s; gradient=false) where {D,G,P,T} =
-    eval_poly(G(), s, P; gradient=gradient)
+FiniteElement(eg::Block{D}, s1::AbstractVector) where {D} =
+    _finite_element(eg, length(s1) - 1, tensor_nodes(eg, s1), true)
+
+function _finite_element(eg::ElementGeometry{D}, p::Integer, nodes::AbstractMatrix{T}, check::Bool) where {D,T}
+    check && check_conforming(eg, nodes)
+    V = polybasis(eg, nodes, p)
+    size(V, 1) == size(V, 2) ||
+        throw(ArgumentError("$(size(nodes,1)) nodes do not match the $(size(V,2)) basis functions of degree $p"))
+    coeff = try
+        inv(V)
+    catch e
+        e isa SingularException && throw(ArgumentError("node set is not unisolvent for degree $p"))
+        rethrow()
+    end
+    FiniteElement{D,typeof(eg),T}(Int(p), Matrix{T}(nodes), Matrix{T}(coeff))
+end
+
+# Degree whose node count on eg equals ns; throws if there is none.
+function _degree_from_nnodes(eg::ElementGeometry{D}, ns::Integer) where {D}
+    D == 0 && ns == 1 && return 0
+    for p in 1:ns
+        nnodes(eg, p) == ns && return p
+        nnodes(eg, p) > ns && break
+    end
+    throw(ArgumentError("$ns nodes do not match any polynomial degree on a $(name(eg))"))
+end
 
 ###########################################################################
-## Shape functions
+## Accessors
 
-"""
-    eval_shapefcns(fe::FiniteElement, ss; gradient=false)
-    eval_shapefcns(eg::ElementGeometry, ss; gradient=false)
+elgeom(::FiniteElement{D,G,T}) where {D,G,T} = G()
+dim(::FiniteElement{D}) where {D} = D
+porder(fe::FiniteElement) = fe.p
+nnodes(fe::FiniteElement) = size(fe.nodes, 1)
+name(fe::FiniteElement) = "p=$(fe.p) " * name(elgeom(fe))
 
-Evaluate shape functions at reference coordinates `ss` (`nss × ndim`).
-
-- `gradient=false` → `nss × ns`
-- `gradient=true`  → `nss × ns × ndim`
-
-The second form uses a linear (`p=1`) element on geometry `eg`.
-"""
-function eval_shapefcns(fe::FiniteElement{D,G,P,T}, ss::AbstractArray{T}; gradient=false) where {D,G,P,T}
-    nss, ndim = size(ss,1), size(ss,2)
-    ndim == 0 && return gradient ? ones(T,nss,1,0) : ones(T,nss,1)
-    pol = eval_poly(G(), ss, P; gradient=gradient)
-    C = fe.shapefcn_coeff[ndim]
-    return gradient ? cat( (pol[:,:,k] * C for k = 1:ndim)..., dims=3) : pol * C
+function Base.show(io::IO, fe::FiniteElement)
+    print(io, "FiniteElement: $(name(fe)), $(nnodes(fe)) nodes")
 end
 
-eval_shapefcns(eg::ElementGeometry, ss::AbstractArray{T}; gradient=false) where {T} =
-    eval_shapefcns(FiniteElement(eg, 1, T), ss; gradient=gradient)
-
 """
-    eval_field(fe::FiniteElement, u, ss; gradient=false)
+    ref_nodes(fe::FiniteElement)
+    ref_nodes(fe::FiniteElement, d)
 
-Evaluate the FEM field `u` at reference coordinates `ss` for all elements.
-
-- `u`:  `ns × nel` or `ns × nel × nc` (nodal DOFs, optionally `nc` components)
-- `ss`: `nss × ndim` (reference coordinates)
-- `gradient=false` → `nss × nel` or `nss × nel × nc`
-- `gradient=true`  → `nss × nel × nc × ndim`
+Reference nodes of `fe` as an `nnodes × D` matrix, or the nodes on the
+canonical `d`-dimensional sub-face `ξ_{d+1} = … = ξ_D = 0` as an `n × d`
+matrix (`d = 0` gives a `1 × 0` matrix: the vertex at the origin).
 """
-function eval_field(fe::FiniteElement{D,G,P,T}, u::Array{T}, ss::AbstractArray{T}; gradient=false) where {D,G,P,T}
-    nss, ndim = size(ss,1), size(ss,2)
-    ns, nel   = size(u,1), size(u,2)
-    @assert ns == nbr_ho_nodes(fe, ndim)
+ref_nodes(fe::FiniteElement) = fe.nodes
 
-    ndim == 0 && return gradient ? zeros(T,nss,nel,size(u,3),0) : repeat(u[[1],:,:],nss)
-
-    C = fe.shapefcn_coeff[ndim]
-    V = eval_poly(fe, ss; gradient=gradient)
-
-    if gradient
-        V = reshape(permutedims(V,(1,3,2)), :, ns)  # (nss*ndim) × ns
-    end
-    matrix_output = V * (C * reshape(u, ns, :))     # apply basis and DOFs together
-
-    if gradient
-        return permutedims(reshape(matrix_output, nss, ndim, nel, size(u,3)), (1,3,4,2))
-    elseif ndims(u) <= 2
-        return matrix_output
-    else
-        return reshape(matrix_output, nss, nel, :)
-    end
+function ref_nodes(fe::FiniteElement{D}, d::Integer) where {D}
+    0 <= d <= D || throw(ArgumentError("sub-dimension $d is outside 0:$D"))
+    d == D ? fe.nodes : _restrict_nodes(fe.nodes, d)
 end
 
-#################################################################################
+"""
+    subelement(fe::FiniteElement, d)
+
+The `d`-dimensional reference element on `subgeom(elgeom(fe), d)` whose nodes
+are the restriction of the nodes of `fe` to the canonical `d`-face.
+"""
+function subelement(fe::FiniteElement{D}, d::Integer) where {D}
+    d == D && return fe
+    _finite_element(subgeom(elgeom(fe), d), fe.p, ref_nodes(fe, d), false)
+end
+
+"""Indices of the reference vertices within the node set of `fe`."""
+function corner_nodes(fe::FiniteElement)
+    v  = vertices(elgeom(fe))
+    ix = [ _find_node(fe.nodes, view(v, i, :)) for i in axes(v, 1) ]
+    any(isnothing, ix) && error("reference vertices are missing from the node set")
+    Int.(ix)
+end
+
+# Tolerance for coordinate comparisons: exact types compare exactly.
+_tol(::Type{T}) where {T<:AbstractFloat} = sqrt(eps(T))
+_tol(::Type) = 0
+
+# Index of the node coinciding with the point x (rows of nodes), or nothing.
+function _find_node(nodes::AbstractMatrix{T}, x) where {T}
+    tol = _tol(T)
+    for k in axes(nodes, 1)
+        all(abs(nodes[k, d] - x[d]) <= tol for d in axes(nodes, 2)) && return k
+    end
+    nothing
+end
+
+# Rows of nodes lying on the canonical d-face, keeping the first d coordinates.
+function _restrict_nodes(nodes::AbstractMatrix{T}, d::Integer) where {T}
+    tol  = _tol(T)
+    keep = [ all(abs(nodes[k, e]) <= tol for e in d+1:size(nodes, 2)) for k in axes(nodes, 1) ]
+    nodes[keep, 1:d]
+end
+
+###########################################################################
+## Conformity check
+
+"""
+    check_conforming(eg::ElementGeometry, nodes::AbstractMatrix)
+
+Verify that `nodes` (`nnodes × D`) can serve as the reference node set of a
+conforming high-order mesh on `eg`, and throw an `ArgumentError` otherwise.
+The node set must
+
+1. have the node count of some polynomial degree `p ≥ 1`,
+2. contain the reference vertices,
+3. be invariant under every map in `symmetries(eg)`, so that its trace on a
+   face does not depend on the orientation of the face,
+4. be unisolvent for degree `p`, and
+5. restrict to a conforming node set of the sub-geometry on the canonical
+   face `ξ_D = 0` (checked recursively down to the edges).
+"""
+function check_conforming(eg::ElementGeometry{D}, nodes::AbstractMatrix{T}) where {D,T}
+    size(nodes, 2) == D ||
+        throw(ArgumentError("node matrix has $(size(nodes, 2)) columns, expected D=$D"))
+    p = _degree_from_nnodes(eg, size(nodes, 1))
+
+    for (i, v) in enumerate(eachrow(vertices(eg)))
+        isnothing(_find_node(nodes, v)) &&
+            throw(ArgumentError("node set does not contain reference vertex $i at $(collect(v))"))
+    end
+
+    for (A, b) in symmetries(eg)
+        mapped = nodes * A' .+ b'
+        for k in axes(mapped, 1)
+            isnothing(_find_node(nodes, view(mapped, k, :))) &&
+                throw(ArgumentError("node set is not symmetric: the image of node $k under a symmetry of the element is not a node"))
+        end
+    end
+
+    V = polybasis(eg, nodes, p)
+    issuccess(lu(V; check=false)) ||
+        throw(ArgumentError("node set is not unisolvent for degree $p"))
+    T <: AbstractFloat && cond(V) > 1e12 &&
+        throw(ArgumentError("node set is numerically not unisolvent for degree $p (condition number $(cond(V)))"))
+
+    if D >= 1
+        sg  = subgeom(eg, D - 1)
+        sub = _restrict_nodes(nodes, D - 1)
+        size(sub, 1) == nnodes(sg, p) ||
+            throw(ArgumentError("the face ξ_$D = 0 carries $(size(sub, 1)) nodes; a degree-$p $(name(sg)) needs $(nnodes(sg, p))"))
+        check_conforming(sg, sub)
+    end
+    nothing
+end
+
+###########################################################################
+## Shape functions and interpolation
+
+"""
+    shapefcns(fe::FiniteElement, ξ)
+    dshapefcns(fe::FiniteElement, ξ)
+    shapefcns(eg::ElementGeometry, ξ)
+    dshapefcns(eg::ElementGeometry, ξ)
+
+Lagrange shape functions of `fe` at the reference points `ξ` (`nξ × D`), as
+an `nξ × nnodes` matrix, and their reference gradients as an
+`nξ × nnodes × D` array. The forms taking a geometry use its linear (`p=1`)
+element.
+"""
+shapefcns(fe::FiniteElement, ξ::AbstractVecOrMat) = polybasis(elgeom(fe), ξ, fe.p) * fe.coeff
+
+function dshapefcns(fe::FiniteElement{D}, ξ::AbstractVecOrMat) where {D}
+    dV  = dpolybasis(elgeom(fe), ξ, fe.p)
+    out = similar(dV, promote_type(eltype(dV), eltype(fe.coeff)), (size(dV, 1), nnodes(fe), D))
+    for d in 1:D
+        out[:, :, d] = dV[:, :, d] * fe.coeff
+    end
+    out
+end
+
+shapefcns(eg::ElementGeometry, ξ::AbstractVecOrMat)  = shapefcns(_linear_element(eg, ξ), ξ)
+dshapefcns(eg::ElementGeometry, ξ::AbstractVecOrMat) = dshapefcns(_linear_element(eg, ξ), ξ)
+
+_linear_element(eg, ξ) = FiniteElement(eg, 1, eltype(ξ) <: Integer ? Float64 : eltype(ξ))
+
+"""
+    interpolate(N, u)
+    interpolate(dN, u)
+
+Apply the shape-function matrix `N = shapefcns(fe, ξ)` (`nξ × ns`) to nodal
+values `u` (`ns × …`, for example `ns × nel` or `ns × nel × ncomp`), giving
+the interpolated values at the points `ξ` as `nξ × …`. With the gradient
+array `dN = dshapefcns(fe, ξ)` (`nξ × ns × D`) the result has an extra
+trailing dimension `D` holding the reference derivatives.
+
+```julia
+N  = shapefcns(m.fe, ξ)
+x  = interpolate(N, dg_nodes(m))                 # nξ × nel × D physical coordinates
+J  = interpolate(dshapefcns(m.fe, ξ), dg_nodes(m))   # nξ × nel × D × D, J[:,:,i,j] = ∂x_i/∂ξ_j
+```
+"""
+function interpolate(N::AbstractMatrix, u::AbstractArray)
+    ns = size(u, 1)
+    size(N, 2) == ns || throw(DimensionMismatch("N has $(size(N, 2)) columns but u has $ns rows"))
+    reshape(N * reshape(u, ns, :), size(N, 1), Base.tail(size(u))...)
+end
+
+function interpolate(dN::AbstractArray{<:Any,3}, u::AbstractArray)
+    D   = size(dN, 3)
+    out = similar(u, promote_type(eltype(dN), eltype(u)), (size(dN, 1), Base.tail(size(u))..., D))
+    for d in 1:D
+        selectdim(out, ndims(out), d) .= interpolate(view(dN, :, :, d), u)
+    end
+    out
+end

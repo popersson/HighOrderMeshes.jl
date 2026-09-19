@@ -303,16 +303,14 @@ vtk_node_order_map(::Block{3}) = [
         [1,9,10,11,12,13,14,2,27,225,226,227,228,229,230,15,28,231,232,233,234,235,236,16,29,237,238,239,240,241,242,17,30,243,244,245,246,247,248,18,31,249,250,251,252,253,254,19,32,255,256,257,258,259,260,20,4,21,22,23,24,25,26,3,57,153,154,155,156,157,158,63,81,297,298,299,300,301,302,117,82,303,304,305,306,307,308,118,83,309,310,311,312,313,314,119,84,315,316,317,318,319,320,120,85,321,322,323,324,325,326,121,86,327,328,329,330,331,332,122,69,189,190,191,192,193,194,75,58,159,160,161,162,163,164,64,87,333,334,335,336,337,338,123,88,339,340,341,342,343,344,124,89,345,346,347,348,349,350,125,90,351,352,353,354,355,356,126,91,357,358,359,360,361,362,127,92,363,364,365,366,367,368,128,70,195,196,197,198,199,200,76,59,165,166,167,168,169,170,65,93,369,370,371,372,373,374,129,94,375,376,377,378,379,380,130,95,381,382,383,384,385,386,131,96,387,388,389,390,391,392,132,97,393,394,395,396,397,398,133,98,399,400,401,402,403,404,134,71,201,202,203,204,205,206,77,60,171,172,173,174,175,176,66,99,405,406,407,408,409,410,135,100,411,412,413,414,415,416,136,101,417,418,419,420,421,422,137,102,423,424,425,426,427,428,138,103,429,430,431,432,433,434,139,104,435,436,437,438,439,440,140,72,207,208,209,210,211,212,78,61,177,178,179,180,181,182,67,105,441,442,443,444,445,446,141,106,447,448,449,450,451,452,142,107,453,454,455,456,457,458,143,108,459,460,461,462,463,464,144,109,465,466,467,468,469,470,145,110,471,472,473,474,475,476,146,73,213,214,215,216,217,218,79,62,183,184,185,186,187,188,68,111,477,478,479,480,481,482,147,112,483,484,485,486,487,488,148,113,489,490,491,492,493,494,149,114,495,496,497,498,499,500,150,115,501,502,503,504,505,506,151,116,507,508,509,510,511,512,152,74,219,220,221,222,223,224,80,5,33,34,35,36,37,38,6,51,261,262,263,264,265,266,39,52,267,268,269,270,271,272,40,53,273,274,275,276,277,278,41,54,279,280,281,282,283,284,42,55,285,286,287,288,289,290,43,56,291,292,293,294,295,296,44,8,45,46,47,48,49,50,7]
 ]
 
-vtk_node_order_map(::FiniteElement{D,G,P,T}) where {D,G,P,T} =
-    vtk_node_order_map(G())[P]
+vtk_node_order_map(fe::FiniteElement) = vtk_node_order_map(elgeom(fe))[porder(fe)]
 
 vtk_celltype(_) = error("Unknown element")
 vtk_celltype(::Simplex{2}) = 69
 vtk_celltype(::Simplex{3}) = 71
 vtk_celltype(::Block{2}) = 70
 vtk_celltype(::Block{3}) = 72
-vtk_celltype(::FiniteElement{D,G,P,T}) where {D,G,P,T} =
-    vtk_celltype(G())
+vtk_celltype(fe::FiniteElement) = vtk_celltype(elgeom(fe))
 
 # Write a POINT_DATA block to an open VTK ASCII file.
 # typename: "SCALARS" or "VECTORS"; uname: field name in the VTK file.
@@ -345,7 +343,7 @@ u = hcat(m.x[:,1].^2, m.x[:,2], -m.x[:,1])   # 3 components
 vtkwrite("out.vtk", m, u, umap=[1, 2:3])      # scalar u1, vector u23
 ```
 """
-function vtkwrite(fname, m::HighOrderMesh{D,G,P,T}, u::Array{T}=T[]; umap=nothing) where {D,G,P,T}
+function vtkwrite(fname, m::HighOrderMesh{D,G,T}, u::Array{T}=T[]; umap=nothing) where {D,G,T}
     if size(u,1) == size(m.x,1)
         # Assume CG solution
         x = copy(m.x)
@@ -442,30 +440,31 @@ For simplex meshes, nodes must be in the standard equispaced order
 For block meshes, Gauss-Lobatto nodes are required
 (use `set_lobatto_nodes(m)` if needed).
 """
-function mshto3dg(m::HighOrderMesh{D,G,P,T}) where {D,G,P,T}
+function mshto3dg(m::HighOrderMesh{D,G,T}) where {D,G,T}
     eltype,nv,nf = eltype3dg(G()), nvertices(G()), nfaces(G())
 
     dim = D
+    P = HighOrderMeshes.porder(m)
     porder = P
 
     if eltype == 0 # Simplex
-        s = ref_nodes(Simplex{D}(), equispaced(P))
-        if !isapprox(s, ref_nodes(m.fe,D))
+        s = equispaced_nodes(Simplex{D}(), P)
+        if !isapprox(s, ref_nodes(m.fe))
             error("3DG conversion only supported for standard simplex node order. Consider using set_degree(m, porder(m))")
         end
     elseif eltype == 1 # Block
-        s0 = gauss_lobatto01_nodes(P+1, T=T)
-        if !isapprox(s0, ref_nodes(m.fe,1))
+        s0 = gauss_lobatto01_nodes(P+1, T)
+        if !isapprox(s0, vec(ref_nodes(m.fe, 1)))
             error("3DG only supports quad meshes with Lobatto nodes. Consider using set_lobatto_nodes")
         end
     end
-    
+
     p1 = permutedims(dg_nodes(m), (1,3,2))
-    
+
     m1 = set_degree(m, 1)
-    s = eval_shapefcns(m1.fe, ref_nodes(m.fe, D))
-    sbnd = eval_shapefcns(m1.fe, ref_nodes(m.fe, D-1))
-    # s0 = eval_shapefcns(m1.fe, ref_nodes(m.fe, 1)) # Should be this for consistency
+    s = shapefcns(m1.fe, ref_nodes(m.fe))
+    sbnd = shapefcns(subelement(m1.fe, D-1), ref_nodes(m.fe, D-1))
+    # s0 = shapefcns(subelement(m1.fe, 1), ref_nodes(m.fe, 1)) # Should be this for consistency
     s0 = ref_nodes(m.fe, 1)  # ... but 3DG seems to use coordinates
     p = Cdouble.(transpose(m1.x))
     t = Cint.(m1.el .- 1)
@@ -502,15 +501,16 @@ function elgeom_from_3dg(dim::Integer, eltype::Integer)
 end
 
 function finite_element_from_3dg(eg::ElementGeometry, porder::Int, T::Type, msh3dg)
+    # 3DG simplex meshes use the standard equispaced nodes.
+    eg isa Block || return FiniteElement(eg, porder, T)
+
     s0 = if hasproperty(msh3dg, :s0)
         sline = vec(T.(msh3dg.s0))
         length(sline) == porder + 1 ||
             error("3DG field s0 has length $(length(sline)); expected $(porder + 1)")
         sline
-    elseif eg isa Block
-        gauss_lobatto01_nodes(porder + 1, T=T)
     else
-        T.(equispaced(porder))
+        gauss_lobatto01_nodes(porder + 1, T)
     end
 
     FiniteElement(eg, s0)
@@ -566,7 +566,7 @@ function mshfrom3dg(msh3dg; unique_nodes=true)
     end
 
     fe = finite_element_from_3dg(eg, P, T, msh3dg)
-    HighOrderMesh{D,typeof(eg),P,T}(fe, x, el, nb)
+    HighOrderMesh{D,typeof(eg),T}(fe, x, el, nb)
 end
 
 ## ==============================================================================

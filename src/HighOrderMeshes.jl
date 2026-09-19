@@ -15,28 +15,29 @@ hexahedra) elements at arbitrary polynomial order.
 | `viz/`         | Backend-agnostic mesh and solution visualization data |
 | `io/`          | Binary `.hom` format, Gmsh import, VTK export         |
 
-Visualization backends are loaded as package extensions:
-- `using Makie` (or a Makie backend) enables `plot(m)` and `plot(m, u)` via Makie.
-- `using Plots, TriplotRecipes` enables the same via Plots.jl.
+Visualization is loaded as a package extension: `using Makie` (or a Makie
+backend such as GLMakie or CairoMakie) enables `plot(m)` and `plot(m, u)`.
 """
 module HighOrderMeshes
 
 using LinearAlgebra, SparseArrays, StaticArrays
 
 # mesh/
-export ElementGeometry, Simplex, Block, dim, name, nvertices, nfaces, nedges, facemap, edgemap, subgeom
-export HighOrderMesh, dg_nodes, elgeom, dim, porder, nnodes, nel
+export ElementGeometry, Simplex, Block, dim, name, nvertices, nfaces, nedges, nnodes, vertices
+export facemap, edgemap, subgeom, symmetries
+export HighOrderMesh, dg_nodes, elgeom, porder, nel
 export el2nb, set_ref_nodes, set_degree, set_lobatto_nodes, mkface2nodes
 export uniref, boundary_nodes, set_bnd_numbers!, set_bnd_periodic!, unique_mesh_nodes
 export blockmesh_hypercube, mshhypercube, mshcube, mshsquare, mshline, mshcircle
 
 # basis/
-export legendre_poly, legendre01_poly, multivar_legendre01_poly, multivar_monomial_poly, eval_poly
+export jacobi, djacobi, legendre, dlegendre, legendre01, dlegendre01
+export polybasis, dpolybasis, multiindices, equispaced, equispaced_nodes, tensor_nodes
 export gauss_legendre_nodes, gauss_legendre01_nodes, gauss_legendre_quadrature, gauss_legendre01_quadrature
 export gauss_lobatto_nodes, gauss_lobatto01_nodes, gauss_lobatto_quadrature, gauss_lobatto01_quadrature
-export equispaced, ref_nodes, quadrature
-export FiniteElement, elgeom, dim, porder, nbr_ho_nodes, corner_nodes, name
-export eval_shapefcns, eval_field
+export quadrature
+export FiniteElement, ref_nodes, subelement, corner_nodes, check_conforming
+export shapefcns, dshapefcns, interpolate
 
 # fem/
 export mkldgswitch, align_with_ldgswitch!
@@ -49,7 +50,7 @@ export cg_mass, cg_poisson
 export viz_mesh, viz_solution, mesh_function_type
 
 # io/
-export savemesh, loadmesh, savemeshtxt, loadmeshtxt
+export savemesh, loadmesh
 export mshto3dg, mshfrom3dg, gmsh2msh, rungmsh2msh, gmshstr2msh, vtkwrite
 
 # mesh/ (element topology, no basis dependency)

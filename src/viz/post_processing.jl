@@ -16,10 +16,12 @@ Curved edges (high-order meshes, `P > 1`) are adaptively subdivided until the
 piecewise-linear approximation error is below `reltol * edge_length` or `abstol`,
 using up to `2^maxref` sub-intervals.
 """
-function viz_mesh(m::HighOrderMesh{2,G,P,T};
-                  reltol=1e-3, abstol=Inf, maxref=6) where {G,P,T}
+function viz_mesh(m::HighOrderMesh{2,G,T};
+                  reltol=1e-3, abstol=Inf, maxref=6) where {G,T}
     F      = Float64
+    P      = porder(m)
     f2n    = mkface2nodes(m.fe)
+    fe1    = subelement(m.fe, 1)          # edge reference element
     xdg    = dg_nodes(m)
     order  = plot_face_order(G())
     nf, nel = size(m.nb)
@@ -29,7 +31,7 @@ function viz_mesh(m::HighOrderMesh{2,G,P,T};
     for iel = 1:nel, iface = 1:nf
         xy = xdg[f2n[:, iface], iel, :]
 
-        evaledge(nsub)    = F.(eval_field(m.fe, xy, (0:nsub) ./ T(nsub)))
+        evaledge(nsub)    = F.(interpolate(shapefcns(fe1, (0:nsub) ./ T(nsub)), xy))
         rowwise2norm(X)   = sqrt.(sum(X .^ 2, dims=2))
 
         # Refine a coarse polyline by inserting midpoints nref times
@@ -95,7 +97,7 @@ function viz_mesh(m::HighOrderMesh{2,G,P,T};
 
     # Element centroids for optional element-number labels
     mid      = midpoint(G())
-    elem_mid = eval_field(m.fe, xdg, mid')[1,:,:]
+    elem_mid = interpolate(shapefcns(m.fe, mid'), xdg)[1,:,:]
 
     elem_lines, int_lines, bnd_lines, elem_mid
 end
@@ -112,8 +114,6 @@ function subelement_mesh(::Block{1}, n, T=Float64)
     el = collect(hcat(1:n, 2:n+1)')
     x, el
 end
-
-subelement_mesh(::Simplex{1}, n, T=Float64) = subelement_mesh(Block{1}(), n, T)
 
 function subelement_mesh(::Block{2}, n, T=Float64)
     s  = (0:n) ./ T(n)
@@ -177,8 +177,9 @@ For CG fields, coincident sub-mesh nodes are deduplicated so that `allx` and
 `nsub` controls the number of sub-intervals per element edge (default: `1` for
 `p=1`, `3p` for higher order).
 """
-function viz_solution(m::HighOrderMesh{D,G,P,T}, u::Array{T}; nsub=nothing) where {D,G,P,T}
+function viz_solution(m::HighOrderMesh{D,G,T}, u::Array{T}; nsub=nothing) where {D,G,T}
     F     = Float64
+    P     = porder(m)
     is_cg = mesh_function_type(m, u) == :cg
 
     # Normalize to DG format: nnodes_per_elem × nel
@@ -193,16 +194,17 @@ function viz_solution(m::HighOrderMesh{D,G,P,T}, u::Array{T}; nsub=nothing) wher
 
     x1, el1 = subelement_mesh(G(), nsub, T)
     xdg     = dg_nodes(m)
+    N1      = shapefcns(m.fe, x1)
 
     # Evaluate physical coords and solution on the sub-mesh for each element
     allx  = Matrix{F}[]
     allu  = F[]
     allel = Matrix{Int}[]
     for iel = 1:size(u,2)
-        xy1 = F.(eval_field(m.fe, xdg[:,iel,:], x1))
-        u1  = F.(eval_field(m.fe, u[:,iel], x1))
+        xy1 = F.(interpolate(N1, xdg[:,iel,:]))
+        u1  = F.(interpolate(N1, u[:,iel]))
         push!(allx, xy1)
-        append!(allu, u1[:,1])
+        append!(allu, u1)
         push!(allel, el1 .+ (iel-1)*size(x1,1))
     end
     allel = hcat(allel...)
