@@ -2,7 +2,8 @@
 
 ![CI](https://github.com/popersson/HighOrderMeshes.jl/actions/workflows/CI.yml/badge.svg)
 [![codecov](https://codecov.io/gh/popersson/HighOrderMeshes.jl/graph/badge.svg?token=FLXZ69IRUK)](https://codecov.io/gh/popersson/HighOrderMeshes.jl)
-[![docs](https://img.shields.io/badge/docs-stable-blue.svg)](https://popersson.github.io/HighOrderMeshes.jl)
+[![docs stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://popersson.github.io/HighOrderMeshes.jl/stable)
+[![docs dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://popersson.github.io/HighOrderMeshes.jl/dev)
 Tools for high-order unstructured meshes and finite element methods.
 
 See the [documentation](https://popersson.github.io/HighOrderMeshes.jl) for
@@ -19,12 +20,14 @@ Pkg.add(url="https://github.com/popersson/HighOrderMeshes.jl")
 
 > **Warning:** Since this package is in active development, the `main` branch may contain breaking changes.
 
-### Legacy Version (2024-2025 Code)
+### Earlier versions
 
-If you need the original interface (v0.1.0), install it by specifying the tag:
+Version 0.3.0 is a breaking redesign of the core API; see `CHANGELOG.md`.
+The last version before the redesign is `v0.2.0`, and the original 2024-2025
+interface is `v0.1.0`. Install either by specifying the tag:
 
 ```julia
-Pkg.add(url="https://github.com/popersson/HighOrderMeshes.jl", rev="v0.1.0")
+Pkg.add(url="https://github.com/popersson/HighOrderMeshes.jl", rev="v0.2.0")
 ```
 
 ## Quick Start

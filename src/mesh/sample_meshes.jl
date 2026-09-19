@@ -1,5 +1,3 @@
-export ex1mesh, ex1solution, gmsh_sphere
-
 sample_mesh(::Block{2}) = [0 0; 1 0; 0 1; 1.2 0.9],
                           [1,2,3,4][:,:]
 sample_mesh(::Simplex{2}) = [0 0; 1 0; 0 1; 1 1; .7 .5],

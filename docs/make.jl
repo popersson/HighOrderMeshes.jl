@@ -3,6 +3,10 @@ using Documenter, HighOrderMeshes
 makedocs(
     sitename = "HighOrderMeshes.jl",
     modules  = [HighOrderMeshes],
+    format   = Documenter.HTML(
+        edit_link = "main",
+        canonical = "https://popersson.github.io/HighOrderMeshes.jl/stable",
+    ),
     pages    = [
         "Home"          => "index.md",
         "Quick start"   => "quickstart.md",
@@ -16,5 +20,6 @@ makedocs(
 
 deploydocs(
     repo = "github.com/popersson/HighOrderMeshes.jl.git",
+    devbranch = "main",
     push_preview = true,
 )

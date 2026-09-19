@@ -1,6 +1,7 @@
 # HighOrderMeshes.jl v0.3 redesign plan
 
-This document is the working plan for the v0.3 redesign. It is written so that
+This document was the working plan for the v0.3 redesign, which is complete;
+it is kept as a record of the design decisions. It is written so that
 an implementing model can execute the open steps one at a time without further
 design decisions. Read `CLAUDE.md` in the repository root first; it states the
 project conventions that every step must respect.
@@ -40,7 +41,7 @@ message.
 | 8 | Gmsh physical names, export cleanup, sample meshes into src | implementer | done |
 | 9 | Documenter skeleton and docs workflow | implementer | done |
 | 10 | Remaining tests and small cleanups | implementer | done |
-| 11 | Version bump, changelog, final review | Fable | open |
+| 11 | Version bump, changelog, final review | Fable | done |
 
 ## Target API after the redesign
 

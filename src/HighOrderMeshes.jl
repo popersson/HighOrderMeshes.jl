@@ -30,6 +30,7 @@ export Neighbor, isboundary, bndtag
 export set_ref_nodes, set_degree, set_lobatto_nodes, mkface2nodes
 export uniref, boundary_nodes, set_bnd_numbers!, set_bnd_periodic!, unique_mesh_nodes
 export mshhypercube, mshcube, mshsquare, mshline, mshcircle
+export ex1mesh, ex1solution, gmsh_sphere
 
 # basis/
 export jacobi, djacobi, legendre, dlegendre, legendre01, dlegendre01
