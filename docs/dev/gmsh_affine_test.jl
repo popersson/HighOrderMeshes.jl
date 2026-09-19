@@ -49,8 +49,8 @@ function gmsh_affine_error(geo, p)
     N1      = shapefcns(elgeom(m), ref_nodes(fe))
     pred    = interpolate(N1, corners)
     err     = maximum(abs.(pred - xdg))
-    ntag    = count(nb -> nb[1] < 0, m.nb)
-    nuntag  = count(nb -> nb[1] == 0, m.nb)
+    ntag    = count(nb -> isboundary(nb) && bndtag(nb) > 0, m.nb)
+    nuntag  = count(nb -> isboundary(nb) && bndtag(nb) == 0, m.nb)
     m, err, ntag, nuntag
 end
 
