@@ -14,6 +14,9 @@ block elements. Single element type and single polynomial degree per mesh.
   msh = set_degree(msh, 3)
   ```
 - Gmsh is installed on the development machine and used through the command line.
+- On Julia 1.11 and later, `Pkg.develop(path=...)` writes a `[sources]` entry with an
+  absolute machine path into `docs/Project.toml` and `test/plotting/Project.toml`.
+  Never commit those entries; restore the files with `git checkout` before committing.
 
 ## Layout
 
