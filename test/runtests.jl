@@ -602,5 +602,74 @@ end
         allx, allu, allel = viz_solution(m1, m1.x)
         @test size(allel, 1) == 2
     end
+
+    @testset "Solver node sets" begin
+        # Gauss-Radau rules: left endpoint included, exact to degree 2n-2
+        for n in 2:8
+            x, w = gauss_radau_quadrature(n)
+            @test length(x) == n && x[1] == -1 && all(diff(x) .> 0) && x[end] < 1
+            for k in 0:2n-2
+                @test w' * x.^k ≈ (iseven(k) ? 2/(k+1) : 0.0) atol=1e-12
+            end
+            x1, w1 = gauss_radau01_quadrature(n)
+            @test x1[1] == 0 && sum(w1) ≈ 1
+            @test w1' * x1.^(2n-2) ≈ 1/(2n-1)
+        end
+        @test gauss_radau_quadrature(2)[1] ≈ [-1, 1/3]
+        @test eltype(gauss_radau01_nodes(4, Float32)) == Float32
+        @test_throws ArgumentError gauss_radau_nodes(1)
+
+        # Non-conforming lines are rejected for mesh elements, accepted with check=false
+        @test_throws ArgumentError FiniteElement(Block{2}(), gauss_radau01_nodes(4))      # not symmetric
+        @test_throws ArgumentError FiniteElement(Block{2}(), gauss_legendre01_nodes(4))   # no vertices
+        @test_throws ArgumentError set_ref_nodes(mshsquare(2), gauss_legendre01_nodes(3))
+        @test FiniteElement(Block{2}(), gauss_legendre01_nodes(4); check=false) isa FiniteElement
+
+        # The DG-SEM workflow on affine block meshes: metric terms and exact transfer
+        for (m, line) in ((set_degree(mshsquare(3), 3), gauss_legendre01_nodes(4)),
+                          (set_lobatto_nodes(set_degree(mshcube(2, 2, 2), 2)), gauss_radau01_nodes(3)))
+            G, p, D = elgeom(m), porder(m), dim(m)
+            fe_sol  = FiniteElement(G, line; check=false)
+            @test porder(fe_sol) == p && nnodes(fe_sol) == nnodes(m.fe)
+
+            ξs = ref_nodes(fe_sol)
+            xs = interpolate(shapefcns(m.fe, ξs),  dg_nodes(m))     # nξ × nel × D
+            J  = interpolate(dshapefcns(m.fe, ξs), dg_nodes(m))     # nξ × nel × D × D
+            h  = 1 / round(Int, nel(m)^(1/D))                       # axis-aligned elements of size h
+            @test size(xs) == (nnodes(fe_sol), nel(m), D) && size(J) == (nnodes(fe_sol), nel(m), D, D)
+            for i in 1:D, j in 1:D
+                @test all(isapprox.(J[:,:,i,j], i == j ? h : 0, atol=1e-12))
+            end
+
+            # a degree-p polynomial sampled at solver nodes transfers exactly to the mesh nodes
+            fx(X) = X[:,:,1].^p .- 2 .* X[:,:,2].^(p-1) .* X[:,:,1] .+ 3
+            u_sol  = fx(xs)
+            u_mesh = interpolate(fe_sol, m.fe, u_sol)
+            @test u_mesh ≈ fx(dg_nodes(m)) atol=1e-10
+            @test interpolate(m.fe, fe_sol, u_mesh) ≈ u_sol atol=1e-10
+            @test size(interpolate(fe_sol, m.fe, cat(u_sol, 2u_sol, dims=3))) == (nnodes(m.fe), nel(m), 2)
+
+            if D == 2
+                # plotting straight from the solver layout agrees with the transferred field
+                ax1, au1, ael1 = viz_solution(m, u_sol; fe=fe_sol)
+                ax2, au2, ael2 = viz_solution(m, u_mesh)
+                @test ax1 ≈ ax2 && au1 ≈ au2 && ael1 == ael2
+                @test_throws ErrorException viz_solution(m, u_sol[1:end-1, :]; fe=fe_sol)
+                @test_throws ArgumentError viz_solution(m, u_sol; fe=FiniteElement(Simplex{2}(), p))
+            end
+        end
+
+        # Simplices: any unisolvent node set works with check=false; exact in reference space
+        m  = ex1mesh(eg=Simplex{2}(), nref=1)
+        p  = porder(m)
+        ξs = Float64.(equispaced_nodes(Simplex{2}(), p)) .* 0.8 .+ 0.05
+        @test_throws ArgumentError FiniteElement(Simplex{2}(), ξs)
+        fe_sol = FiniteElement(Simplex{2}(), ξs; check=false)
+        g(ξ) = ξ[:,1].^p .- ξ[:,2].^(p-1) .* ξ[:,1] .+ 1          # degree-p polynomial in ξ
+        u_sol  = repeat(g(ξs), 1, nel(m))
+        u_mesh = interpolate(fe_sol, m.fe, u_sol)
+        @test u_mesh ≈ repeat(g(ref_nodes(m.fe)), 1, nel(m)) atol=1e-10
+        @test_throws ArgumentError interpolate(fe_sol, FiniteElement(Block{2}(), p), u_sol)
+    end
 end
 end

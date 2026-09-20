@@ -49,5 +49,15 @@ using HighOrderMeshes
         @test length(cbs) == 1
         allu = viz_solution(m, u)[2]
         @test collect(cbs[1].limits[]) ≈ collect(extrema(allu)) rtol=1e-6
+
+        # a field on solver nodes plots through the fe attribute, and agrees with
+        # the same field transferred to the mesh nodes
+        fe_sol = FiniteElement(Block{2}(), gauss_legendre01_nodes(porder(m)+1); check=false)
+        u_sol  = interpolate(m.fe, fe_sol, u)
+        f3 = Makie.plot(m, u_sol; fe=fe_sol)
+        check_makie(f3)
+        f4 = Makie.plot(m, interpolate(fe_sol, m.fe, u_sol))
+        lims(f) = collect(filter(x -> x isa Makie.Colorbar, f.content)[1].limits[])
+        @test lims(f3) ≈ lims(f4) rtol=1e-6
     end
 end

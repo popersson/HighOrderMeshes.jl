@@ -12,6 +12,7 @@ makedocs(
         "Quick start"   => "quickstart.md",
         "Mesh format"   => "meshformat.md",
         "Basic meshes"  => "basicmeshes.md",
+        "Solver node sets" => "solvernodes.md",
         "Gmsh import"   => "gmsh.md",
         "File I/O"      => "io.md",
         "API reference" => "api.md",

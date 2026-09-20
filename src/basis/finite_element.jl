@@ -25,7 +25,7 @@ end
 """
     FiniteElement(eg::ElementGeometry, nodes::AbstractMatrix; check=true)
     FiniteElement(eg::ElementGeometry, p::Int, T=Float64)
-    FiniteElement(eg::Block, s1::AbstractVector)
+    FiniteElement(eg::Block, s1::AbstractVector; check=true)
 
 Construct a reference element on geometry `eg`:
 
@@ -33,8 +33,13 @@ Construct a reference element on geometry `eg`:
   node count and the node set is validated with [`check_conforming`](@ref)
   unless `check=false`;
 - with equispaced nodes of degree `p`;
-- for blocks, from the tensor product of a symmetric 1D node line `s1` of
-  length `p+1` (for example `gauss_lobatto01_nodes(p+1)`).
+- for blocks, from the tensor product of a 1D node line `s1` of length `p+1`
+  (for example `gauss_lobatto01_nodes(p+1)`), validated unless `check=false`.
+
+Mesh elements must pass the validation. Solver elements on deliberately
+non-conforming nodes, such as Gauss-Legendre or Gauss-Radau points, are
+built with `check=false`; see [`interpolate`](@ref) for moving data between
+the two.
 """
 function FiniteElement(eg::ElementGeometry{D}, nodes::AbstractMatrix; check::Bool=true) where {D}
     p = _degree_from_nnodes(eg, size(nodes, 1))
@@ -44,8 +49,8 @@ end
 FiniteElement(eg::ElementGeometry, p::Integer, ::Type{T}=Float64) where {T} =
     _finite_element(eg, p, T.(equispaced_nodes(eg, p)), false)
 
-FiniteElement(eg::Block{D}, s1::AbstractVector) where {D} =
-    _finite_element(eg, length(s1) - 1, tensor_nodes(eg, s1), true)
+FiniteElement(eg::Block{D}, s1::AbstractVector; check::Bool=true) where {D} =
+    _finite_element(eg, length(s1) - 1, tensor_nodes(eg, s1), check)
 
 function _finite_element(eg::ElementGeometry{D}, p::Integer, nodes::AbstractMatrix{T}, check::Bool) where {D,T}
     check && check_conforming(eg, nodes)
@@ -249,4 +254,28 @@ function interpolate(dN::AbstractArray{<:Any,3}, u::AbstractArray)
         selectdim(out, ndims(out), d) .= interpolate(view(dN, :, :, d), u)
     end
     out
+end
+
+"""
+    interpolate(fe_from::FiniteElement, fe_to::FiniteElement, u)
+
+Re-nodalize nodal values `u` (`nnodes(fe_from) × …`) from the node set of
+`fe_from` to the node set of `fe_to`, both on the same reference geometry.
+When the two elements have the same degree the result is exact, because the
+Lagrange interpolants through either node set are the same polynomial; for a
+lower-degree `fe_to` it is the interpolation of the field at the coarser
+nodes.
+
+Typical use: a solver working on its own non-conforming nodes transfers its
+solution to the mesh nodes for plotting or export.
+
+```julia
+fe_sol = FiniteElement(Block{2}(), gauss_legendre01_nodes(p+1); check=false)
+u_mesh = interpolate(fe_sol, m.fe, u_sol)    # nnodes(m.fe) × nel
+```
+"""
+function interpolate(fe_from::FiniteElement{D}, fe_to::FiniteElement{D}, u::AbstractArray) where {D}
+    elgeom(fe_from) == elgeom(fe_to) ||
+        throw(ArgumentError("cannot interpolate between a $(name(elgeom(fe_from))) and a $(name(elgeom(fe_to)))"))
+    interpolate(shapefcns(fe_from, ref_nodes(fe_to)), u)
 end
