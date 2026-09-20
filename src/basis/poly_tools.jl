@@ -333,6 +333,54 @@ function gauss_lobatto01_quadrature(n::Integer, ::Type{T}=Float64) where {T}
     (x .+ 1) ./ 2, w ./ 2
 end
 
+"""
+    gauss_radau_nodes(n, T=Float64)
+    gauss_radau01_nodes(n, T=Float64)
+
+Return `n ≥ 2` left Gauss-Radau nodes on `[-1,1]` (or `[0,1]`): the left
+endpoint plus `n-1` interior points, the roots of `P_n + P_{n-1}`. These are
+the half-closed node sets used by some DG-SEM schemes; `1 .- reverse(x)`
+gives the right-closed variant. They do not contain both vertices, so they
+can serve as solver nodes but not as mesh nodes.
+"""
+function gauss_radau_nodes(n::Integer, ::Type{T}=Float64) where {T}
+    n >= 2 || throw(ArgumentError("Gauss-Radau rules need at least 2 points"))
+    x = [ -cos(2 * T(π) * k / (2n - 1)) for k = 0:n-1 ]  # initial guess; k = 0 is exactly -1
+    for _ = 1:100
+        f  = legendre.(n, x) .+ legendre.(n - 1, x)
+        df = dlegendre.(n, x) .+ dlegendre.(n - 1, x)
+        dx = f ./ df
+        x .-= dx
+        maximum(abs, dx) < 2 * eps(T) && return x
+    end
+    error("No convergence in Gauss-Radau Newton iterations")
+end
+
+gauss_radau01_nodes(n::Integer, ::Type{T}=Float64) where {T} = (gauss_radau_nodes(n, T) .+ 1) ./ 2
+
+"""
+    gauss_radau_quadrature(n, T=Float64)
+    gauss_radau01_quadrature(n, T=Float64)
+
+Left Gauss-Radau nodes and weights on `[-1,1]` (or `[0,1]`) with `n` points.
+Degree of precision: `2n-2`.
+
+```julia
+x, w = gauss_radau_quadrature(3)
+w' * x.^4   # ≈ 2/5  (exact: DoP=4)
+```
+"""
+function gauss_radau_quadrature(n::Integer, ::Type{T}=Float64) where {T}
+    x = gauss_radau_nodes(n, T)
+    w = @. (1 - x) / (n^2 * legendre(n - 1, x)^2)
+    x, w
+end
+
+function gauss_radau01_quadrature(n::Integer, ::Type{T}=Float64) where {T}
+    x, w = gauss_radau_quadrature(n, T)
+    (x .+ 1) ./ 2, w ./ 2
+end
+
 ###########################################################################
 ## Multi-dimensional quadrature
 

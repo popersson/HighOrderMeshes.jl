@@ -1,5 +1,23 @@
 # Changelog
 
+## v0.3.1
+
+Support for solvers that work on their own, non-conforming node sets, such
+as DG-SEM on Gauss-Legendre or Gauss-Radau points. The mesh keeps its
+conforming nodes; the solver builds a second reference element and moves
+data between the two.
+
+- `interpolate(fe_from, fe_to, u)` re-nodalizes a field between two reference
+  elements on the same geometry; exact when the degrees agree.
+- `FiniteElement(eg::Block, s1; check=false)` builds a block element from a
+  non-conforming 1D line, matching the existing `check` keyword of the
+  node-matrix constructor.
+- `viz_solution(m, u; fe)` and the Makie solution plot attribute `fe` plot a
+  field straight from a solver's node layout.
+- `gauss_radau_nodes`, `gauss_radau01_nodes`, `gauss_radau_quadrature` and
+  `gauss_radau01_quadrature` (left Gauss-Radau rules, exact to degree `2n-2`).
+- New documentation page "Solver node sets" with the complete workflow.
+
 ## v0.3.0
 
 Breaking redesign of the core types and the polynomial tools. The mesh

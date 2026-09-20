@@ -160,7 +160,7 @@ end
 ## Solution visualization
 
 """
-    viz_solution(m::HighOrderMesh, u; nsub=nothing)
+    viz_solution(m::HighOrderMesh, u; nsub=nothing, fe=m.fe)
 
 Evaluate the FEM solution `u` on a refined sub-mesh for smooth plotting.
 Returns `(allx, allu, allel)`:
@@ -174,18 +174,33 @@ Returns `(allx, allu, allel)`:
 For CG fields, coincident sub-mesh nodes are deduplicated so that `allx` and
 `allu` have no repeated entries.
 
+`fe` is the reference element whose nodes `u` lives on. It defaults to the
+mesh element; pass a solver element (for example one built on Gauss-Legendre
+nodes with `check=false`) to plot a field straight from the solver's node
+layout, in which case `u` must be a DG field of size `nnodes(fe) × nel`.
+
 `nsub` controls the number of sub-intervals per element edge (default: `1` for
 `p=1`, `3p` for higher order).
 """
-function viz_solution(m::HighOrderMesh{D,G,T}, u::Array{T}; nsub=nothing) where {D,G,T}
-    F     = Float64
-    P     = porder(m)
-    is_cg = mesh_function_type(m, u) == :cg
+function viz_solution(m::HighOrderMesh{D,G,T}, u::Array{T}; nsub=nothing,
+                      fe::FiniteElement=m.fe) where {D,G,T}
+    F      = Float64
+    P      = max(porder(m), porder(fe))
+    custom = fe !== m.fe
+    if custom
+        elgeom(fe) == G() ||
+            throw(ArgumentError("the reference element is a $(name(elgeom(fe))); the mesh has $(name(G())) elements"))
+        size(u,1) == nnodes(fe) ||
+            error("Solution field has $(size(u,1)) rows; expected $(nnodes(fe)) values per element on the given reference element")
+        is_cg = false
+    else
+        is_cg = mesh_function_type(m, u) == :cg
+    end
 
     # Normalize to DG format: nnodes_per_elem × nel
     if is_cg
         u = u[m.el,:]                             # gather to element-local DOFs
-    elseif size(u,3) == size(m.el,2)              # 3DG format: reorder axes
+    elseif !custom && size(u,3) == size(m.el,2)   # 3DG format: reorder axes
         u = convert_3dg_solution(m, u)
     end
     ndims(u) > 2 && (u = u[:,:,1])               # take first component if vector field
@@ -194,15 +209,16 @@ function viz_solution(m::HighOrderMesh{D,G,T}, u::Array{T}; nsub=nothing) where 
 
     x1, el1 = subelement_mesh(G(), nsub, T)
     xdg     = dg_nodes(m)
-    N1      = shapefcns(m.fe, x1)
+    Nx      = shapefcns(m.fe, x1)                 # geometry map on the sub-mesh
+    Nu      = custom ? shapefcns(fe, x1) : Nx     # solution interpolant on the sub-mesh
 
     # Evaluate physical coords and solution on the sub-mesh for each element
     allx  = Matrix{F}[]
     allu  = F[]
     allel = Matrix{Int}[]
     for iel = 1:size(u,2)
-        xy1 = F.(interpolate(N1, xdg[:,iel,:]))
-        u1  = F.(interpolate(N1, u[:,iel]))
+        xy1 = F.(interpolate(Nx, xdg[:,iel,:]))
+        u1  = F.(interpolate(Nu, u[:,iel]))
         push!(allx, xy1)
         append!(allu, u1)
         push!(allel, el1 .+ (iel-1)*size(x1,1))

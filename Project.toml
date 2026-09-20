@@ -1,6 +1,6 @@
 name = "HighOrderMeshes"
 uuid = "f18c5c57-76fa-4ade-9d1a-7f3a1f8a4b32"
-version = "0.3.0"
+version = "0.3.1"
 authors = ["Per-Olof Persson <persson@berkeley.edu>"]
 
 [deps]

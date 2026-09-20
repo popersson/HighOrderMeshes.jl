@@ -37,6 +37,7 @@ export jacobi, djacobi, legendre, dlegendre, legendre01, dlegendre01
 export polybasis, dpolybasis, multiindices, equispaced_nodes, tensor_nodes
 export gauss_legendre_nodes, gauss_legendre01_nodes, gauss_legendre_quadrature, gauss_legendre01_quadrature
 export gauss_lobatto_nodes, gauss_lobatto01_nodes, gauss_lobatto_quadrature, gauss_lobatto01_quadrature
+export gauss_radau_nodes, gauss_radau01_nodes, gauss_radau_quadrature, gauss_radau01_quadrature
 export quadrature
 export FiniteElement, ref_nodes, subelement, corner_nodes, check_conforming
 export shapefcns, dshapefcns, interpolate

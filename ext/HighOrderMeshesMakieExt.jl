@@ -54,7 +54,7 @@ function Makie.plot!(mp::MeshPlot)
 end
 
 """
-    SolutionPlot(msh, u; nsub=nothing, mesh_edges=false)
+    SolutionPlot(msh, u; nsub=nothing, mesh_edges=false, fe=nothing)
 
 Recipe drawing the FEM solution `u` on mesh `msh`.
 
@@ -63,17 +63,22 @@ Recipe drawing the FEM solution `u` on mesh `msh`.
   interior and boundary edges in black.
 
 `nsub` controls sub-element refinement (default: `1` for `p=1`, `3p` otherwise).
+`fe` is the reference element whose nodes `u` lives on; it defaults to the
+mesh element, and a solver element (for example on Gauss-Legendre nodes)
+plots a field straight from the solver's node layout, see `viz_solution`.
 """
 @recipe(SolutionPlot, msh, u) do scene
     Attributes(
         nsub = nothing,
         mesh_edges = false,
+        fe = nothing,
     )
 end
 
 function Makie.plot!(sp::SolutionPlot)
     m, u = sp.msh[], sp.u[]
-    allx, allu, allel = viz_solution(m, u; nsub=sp.nsub[])
+    fe = something(sp.fe[], m.fe)
+    allx, allu, allel = viz_solution(m, u; nsub=sp.nsub[], fe)
     D = dim(m)
 
     if D == 1
