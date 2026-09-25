@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+Isoparametric h-refinement of curved 2D quad and triangle meshes, ported from
+3DG's `qmshrefine`, `qmshuniref` and `qmshbndlayer`.
+
+- `refine(m, marked)` refines the edges marked in an `nfaces × nel` `Bool`
+  matrix, extending the marks so the result is conforming. Quads split into
+  2, 3 or 4 children, triangles into 2 (bisection) or 4.
+  `refine_with_parents` also returns each element's parent index.
+- `uniref(m, nref)` now works for any degree and node set and refines curved
+  elements isoparametrically (it used to require `p=1`). Element and node
+  order of the result changed.
+- `bndlayer_refine(m, bnds, nlayers)` refines quad meshes anisotropically
+  towards the boundaries `bnds`; `bndlayer_refine_with_elements` also returns
+  the indices of the boundary layer elements.
+- Example `examples/naca/mknaca1msh.jl`: NACA 0012 mesh with boundary layers.
 - Fix: Gmsh physical names containing spaces were cut at the first space.
 
 ## v0.3.1

@@ -584,10 +584,130 @@ end
         sw = mkldgswitch(msh)
         @test all(sw[1,:] .== 1 .&& sw[3,:] .== 1)
 
-        @test_throws ErrorException uniref(set_degree(mshsquare(2), 2))
         @test nel(uniref(mshsquare(2), 2)) == 64
         @test length(boundary_nodes(set_degree(mshsquare(2), 3))) == 24
         @test length(boundary_nodes(set_degree(mshsquare(2), 3), 1)) == 7
+    end
+
+    @testset "Refinement" begin
+        # Area by quadrature of the Jacobian determinant; errors on inverted elements.
+        function mesh_area(m)
+            ξ, w = quadrature(elgeom(m), 3*porder(m) + 2)
+            J = interpolate(dshapefcns(m.fe, ξ), dg_nodes(m))
+            dets = J[:,:,1,1] .* J[:,:,2,2] .- J[:,:,1,2] .* J[:,:,2,1]
+            @assert minimum(dets) > 0
+            sum(w .* dets)
+        end
+        # Node count of a conforming mesh: vertices, edge nodes, interior nodes.
+        function conforming_nnodes(m)
+            p   = porder(m)
+            nf  = size(m.nb, 1)
+            nv  = length(unique(m.el[corner_nodes(m.fe),:]))
+            ne  = (count(isboundary, m.nb) + nf*nel(m)) ÷ 2
+            nint = size(m.el, 1) - nvertices(elgeom(m)) - nf*(p - 1)
+            nv + (p - 1)*ne + nint*nel(m)
+        end
+        # Every boundary face has its nodes on the curve of its tag.
+        function tags_consistent(m, bndexpr; tol=1e-12)
+            f2n = mkface2nodes(m)
+            all(isboundary(m.nb[j,iel]) ?
+                all(abs(bndexpr(m.x[k,:])[bndtag(m.nb[j,iel])]) < tol for k in m.el[f2n[:,j],iel]) : true
+                for j in axes(m.nb,1), iel in axes(m.nb,2))
+        end
+        # Unit square with 4 boundary tags and a curved bottom edge, as quads or triangles.
+        # The map is a cubic, so p=3 elements and their children represent it exactly.
+        sqbnd(x) = [x[1], 1 - x[1], x[2] - 0.8*x[1]*(1 - x[1]), 1 - x[2]]
+        function curved_square(n, eg; p=3)
+            m = mshsquare(n)
+            if eg isa Simplex
+                el = hcat(m.el[[1,2,4],:], m.el[[1,4,3],:])
+                m  = HighOrderMesh(m.x, el; bndexpr=x -> [x[1], 1 - x[1], x[2], 1 - x[2]])
+            end
+            m = set_degree(m, p)
+            m.x[:,2] .+= 0.8*m.x[:,1].*(1 .- m.x[:,1]).*(1 .- m.x[:,2])
+            m
+        end
+
+        # Uniform refinement of curved meshes reproduces the geometry exactly.
+        for eg in (Block{2}(), Simplex{2}())
+            for m in (ex1mesh(nref=2, eg=eg), curved_square(2, eg))
+                m2 = uniref(m, 2)
+                @test nel(m2) == 16*nel(m)
+                @test mesh_area(m2) ≈ mesh_area(m) rtol=1e-13
+                @test nnodes(m2) == conforming_nnodes(m2)
+                @test count(isboundary, m2.nb) == 4*count(isboundary, m.nb)
+            end
+            m = curved_square(2, eg)
+            @test tags_consistent(uniref(m, 2), sqbnd)
+            @test sort(unique(bndtag.(filter(isboundary, uniref(m).nb)))) == 1:4
+        end
+        @test sortslices(uniref(mshsquare(2)).x, dims=1) == sortslices(mshsquare(4).x, dims=1)
+        @test nnodes(uniref(ex1mesh(nref=1), 0)) == nnodes(ex1mesh(nref=1))
+
+        # Single-element patterns: marked edges => number of children (after closure).
+        mq = curved_square(1, Block{2}())
+        a0 = mesh_area(mq)
+        # The area depends only on the boundary curves, so it is exact for every pattern.
+        for (marks, nchildren) in ((Bool[0,0,1,1], 2), (Bool[1,1,0,0], 2),
+                                   (Bool[1,0,1,0], 3), (Bool[0,1,0,1], 3),
+                                   (Bool[1,0,0,1], 3), (Bool[0,1,1,0], 3),
+                                   (Bool[1,0,0,0], 3), (Bool[1,1,1,0], 4),
+                                   (Bool[1,1,1,1], 4), (Bool[0,0,0,0], 1))
+            m1, parent = refine_with_parents(mq, reshape(marks, 4, 1))
+            @test nel(m1) == nchildren
+            @test parent == ones(Int, nchildren)
+            @test mesh_area(m1) ≈ a0 rtol=1e-13
+            @test nnodes(m1) == conforming_nnodes(m1)
+            @test tags_consistent(m1, sqbnd)
+        end
+        mt = HighOrderMesh(Float64[0 0; 1 0; 0 1], reshape([1, 2, 3], 3, 1);
+                           bndexpr=x -> [x[1] + x[2] - 1, x[1], x[2]])
+        mt = set_degree(mt, 3)
+        mt.x[:,1] .+= 0.1*mt.x[:,2].*(1 .- mt.x[:,2])              # curves faces 1 and 2
+        tribnd(x) = [x[1] - 0.1*x[2]*(1 - x[2]) + x[2] - 1, x[1] - 0.1*x[2]*(1 - x[2]), x[2]]
+        for (marks, nchildren) in ((Bool[1,0,0], 2), (Bool[0,1,0], 2), (Bool[0,0,1], 2),
+                                   (Bool[1,1,0], 4), (Bool[1,1,1], 4))
+            m1 = refine(mt, reshape(marks, 3, 1))
+            @test nel(m1) == nchildren
+            @test mesh_area(m1) ≈ mesh_area(mt) rtol=1e-13
+            @test nnodes(m1) == conforming_nnodes(m1)
+            @test tags_consistent(m1, tribnd)
+        end
+
+        # Marks propagate through the closure and stay conforming.
+        for m in (set_degree(mshsquare(4), 2), ex1mesh(nref=2, eg=Simplex{2}()))
+            marked = falses(size(m.nb)); marked[1,3] = true
+            m1, parent = refine_with_parents(m, marked)
+            @test nel(m1) > nel(m)
+            @test parent[1:nel(m)] == 1:nel(m)
+            @test nnodes(m1) == conforming_nnodes(m1)
+            @test mesh_area(m1) ≈ mesh_area(m) rtol=1e-12
+        end
+        @test_throws DimensionMismatch refine(mshsquare(2), falses(3, 4))
+        mp = mshsquare(2); set_bnd_periodic!(mp, (1,2), 1)
+        @test_throws ErrorException uniref(mp)
+
+        # Boundary layers: each pass halves the bottom row.
+        m = mshsquare(4, p=2)
+        m1, ix = bndlayer_refine_with_elements(m, 3, 2)
+        @test nel(m1) == 24
+        @test length(ix) == 12
+        @test all(maximum(m1.x[m1.el[:,i],2]) <= 0.25 + 1e-12 for i in ix)
+        @test minimum(maximum(m1.x[m1.el[:,i],2]) for i in 1:nel(m1)) ≈ 1/16
+        @test nel(bndlayer_refine(m, (1, 3))) > nel(bndlayer_refine(m, 3))
+        @test bndlayer_refine(m, 3, 2).x == m1.x
+
+        # NACA mesh: the element counts agree with 3DG's mknaca1msh(1, 3).
+        if Sys.which("gmsh") !== nothing
+            naca = joinpath(pkgdir(HighOrderMeshes), "examples", "naca", "naca.geo")
+            m  = set_lobatto_nodes(rungmsh2msh(naca; porder=3, cmdadd="-v 0"))
+            m1 = uniref(m)
+            m2 = bndlayer_refine(m1, 1, 3)
+            @test nel(m1) == 6144 && nel(m2) == 6564
+            @test nnodes(m2) == conforming_nnodes(m2)
+            @test mesh_area(m2) ≈ mesh_area(m) rtol=1e-10
+            @test sort(unique(bndtag.(filter(isboundary, m2.nb)))) == [1, 2]
+        end
     end
 
     @testset "Visualization data" begin

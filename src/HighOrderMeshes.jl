@@ -28,7 +28,8 @@ export facemap, edgemap, subgeom, symmetries
 export HighOrderMesh, dg_nodes, elgeom, porder, nel
 export Neighbor, isboundary, bndtag
 export set_ref_nodes, set_degree, set_lobatto_nodes, mkface2nodes
-export uniref, boundary_nodes, set_bnd_numbers!, set_bnd_periodic!, unique_mesh_nodes
+export refine, refine_with_parents, uniref, bndlayer_refine, bndlayer_refine_with_elements
+export boundary_nodes, set_bnd_numbers!, set_bnd_periodic!, unique_mesh_nodes
 export mshhypercube, mshcube, mshsquare, mshline, mshcircle
 export ex1mesh, ex1solution, gmsh_sphere
 
@@ -66,6 +67,7 @@ include("basis/finite_element.jl")
 # mesh/ (mesh struct and utilities — depends on basis)
 include("mesh/high_order_mesh.jl")
 include("mesh/mesh_utils.jl")
+include("mesh/refinement.jl")
 include("mesh/basic_meshes.jl")
 include("mesh/sample_meshes.jl")
 

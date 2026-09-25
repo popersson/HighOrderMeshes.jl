@@ -38,3 +38,26 @@ msh = gmsh_sphere(hmax=0.3, porder=2)    # requires gmsh on the PATH
 ```julia
 msh = mshsquare(8; periodic_dirs=(1,2))  # periodic in both x and y
 ```
+
+## Refinement
+
+Any 2D quad or triangle mesh can be refined, curved or not; the children
+follow the parent's polynomial geometry.
+
+```julia
+msh = uniref(ex1mesh(eg=Simplex{2}()), 2)    # split every element into 4, twice
+
+marked = falses(size(msh.nb))                # one flag per element edge
+marked[:, 1:10] .= true
+msh = refine(msh, marked)                    # local refinement, closed conformingly
+```
+
+Quad meshes can also be refined anisotropically towards a boundary. The NACA
+example in `examples/naca/mknaca1msh.jl` adds three boundary layers along the
+airfoil:
+
+```julia
+msh = rungmsh2msh("examples/naca/naca.geo"; porder=3)   # requires gmsh on the PATH
+msh = set_lobatto_nodes(msh)
+msh = bndlayer_refine(uniref(msh), 1, 3)     # boundary tag 1, 3 layers
+```
