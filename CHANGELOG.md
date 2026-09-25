@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Fix: Gmsh physical names containing spaces were cut at the first space.
+
 ## v0.3.1
 
 Support for solvers that work on their own, non-conforming node sets, such

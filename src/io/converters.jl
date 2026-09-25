@@ -23,7 +23,7 @@ function parse_gmsh(fname)
         nbrnames = parse(Int, readline(fid))
         names = []
         for ii = 1:nbrnames
-            cname = split(readline(fid))
+            cname = split(strip(readline(fid)), limit=3)  # the quoted name may contain spaces
             push!(names, (parse(Int, cname[1]), parse(Int, cname[2]), cname[3]))
         end
         gmsh[:PhysicalNames] = names

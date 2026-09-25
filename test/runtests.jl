@@ -423,6 +423,11 @@ end
 
         circle = joinpath(rootdir, "examples", "gmsh", "circle_tris.msh")
         @test gmsh_physical_names(circle) == Dict(1 => "Circle")
+        let fname = tempname() * ".msh"          # physical names may contain spaces
+            write(fname, replace(read(circle, String), "\"Circle\"" => "\"Unit circle\""))
+            @test gmsh_physical_names(fname) == Dict(1 => "Unit circle")
+            rm(fname)
+        end
         m_verbose = gmsh2msh(circle)
         m_quiet   = gmsh2msh(circle; verbose=false)
         @test m_verbose.x == m_quiet.x && m_verbose.el == m_quiet.el && m_verbose.nb == m_quiet.nb
