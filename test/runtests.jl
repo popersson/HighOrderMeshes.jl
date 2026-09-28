@@ -696,6 +696,14 @@ end
         @test minimum(maximum(m1.x[m1.el[:,i],2]) for i in 1:nel(m1)) ≈ 1/16
         @test nel(bndlayer_refine(m, (1, 3))) > nel(bndlayer_refine(m, 3))
         @test bndlayer_refine(m, 3, 2).x == m1.x
+        # Thin layers far from the origin keep all their nodes.
+        m = mshsquare(4, p=2); m.x[:,1] .+= 1000
+        m1 = bndlayer_refine(m, 3, 16)
+        @test nnodes(m1) == conforming_nnodes(m1)
+        @test minimum(maximum(m1.x[m1.el[:,i],2]) for i in 1:nel(m1)) ≈ 0.25 / 2^16
+        @test mesh_area(m1) ≈ 1 rtol=1e-12
+        x, el = unique_mesh_nodes([1000 0; 1000 1e-9; 1000 1e-9; 1000 2e-9], [1 3; 2 4])
+        @test size(x, 1) == 3 && el == [1 2; 2 3]
 
         # NACA mesh: the element counts agree with 3DG's mknaca1msh(1, 3).
         if Sys.which("gmsh") !== nothing

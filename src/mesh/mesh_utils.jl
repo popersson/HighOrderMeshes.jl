@@ -8,21 +8,41 @@ snap(x::T, scaling=1, tol=sqrt(eps(T))) where {T <: AbstractFloat} =
     scaling * tol * round(x / scaling / tol) + zero(T)
 
 """
-    unique_mesh_nodes(x, el; tol=sqrt(eps(T)), output_ix=false)
+    unique_mesh_nodes(x, el; tol=nothing, output_ix=false)
 
 Deduplicate coincident rows in the node coordinate matrix `x` and update the
 element connectivity `el` accordingly. Returns `(x, el)`, or `(x, el, ix)` if
 `output_ix=true`, where `ix` maps new node indices back to rows of the original `x`.
-`tol` is relative to the largest coordinate magnitude in `x`.
+`tol` is relative to the largest coordinate magnitude in `x`. The default is
+`sqrt(eps)`, lowered when needed to stay well below the smallest distance
+between two nodes of one element, so that thin elements far from the origin
+(boundary layers in a large domain) keep all their nodes.
 """
-function unique_mesh_nodes(x, el; tol=sqrt(eps(float(eltype(x)))), output_ix=false)
-    xx  = snap.(x, maximum(abs.(x)), tol)  # snap to eliminate floating-point noise
+function unique_mesh_nodes(x, el; tol=nothing, output_ix=false)
+    scaling = maximum(abs.(x))
+    tol = something(tol, _node_tol(x, el, scaling))
+    xx  = snap.(x, scaling, tol)  # snap to eliminate floating-point noise
     xxx = unique(eachrow(xx))
     ix  = Int.(indexin(xxx, eachrow(xx)))  # unique row → original row
     jx  = Int.(indexin(eachrow(xx), xxx))  # original row → unique row
     x   = x[ix,:]
     el  = jx[el]
     return output_ix ? (x, el, ix) : (x, el)
+end
+
+# Default snapping tolerance of unique_mesh_nodes: sqrt(eps), or 1/1000 of the
+# smallest max-norm distance between two distinct nodes of one element
+# (relative to scaling) if that is smaller, but not below 100 eps.
+function _node_tol(x, el, scaling)
+    T = float(eltype(x))
+    dmin = T(Inf)
+    for iel in axes(el,2), i in axes(el,1), j in 1:i-1
+        a, b = el[i,iel], el[j,iel]
+        d = maximum(abs(x[a,k] - x[b,k]) for k in axes(x,2))
+        d > 0 && (dmin = min(dmin, d))
+    end
+    scaling > 0 && isfinite(dmin) || return sqrt(eps(T))
+    clamp(dmin / scaling / 1000, 100eps(T), sqrt(eps(T)))
 end
 
 ###########################################################################
