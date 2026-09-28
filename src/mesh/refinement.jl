@@ -220,7 +220,7 @@ elements in the boundary layer: those obtained by splitting an element that
 had an edge marked in one of the passes.
 
 ```julia
-m = rungmsh2msh("naca.geo"; porder=3)
+m = mshairfoil(nbndlayers=0)
 m = bndlayer_refine(m, 1, 3)
 ```
 """

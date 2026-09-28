@@ -9,7 +9,8 @@ hexahedra) elements at arbitrary polynomial order.
 
 | Directory      | Contents                                              |
 |:-------------- |:----------------------------------------------------- |
-| `mesh/`        | Element geometry, mesh struct, refinement, generators |
+| `mesh/`        | Element geometry, mesh struct, refinement             |
+| `meshgen/`     | Mesh generators: basic, sample and airfoil meshes     |
 | `basis/`       | Legendre polynomials, quadrature, reference elements  |
 | `fem/`         | FEM assembly, CG solvers, DG utilities                |
 | `viz/`         | Backend-agnostic mesh and solution visualization data |
@@ -30,8 +31,11 @@ export Neighbor, isboundary, bndtag
 export set_ref_nodes, set_degree, set_lobatto_nodes, mkface2nodes
 export refine, refine_with_parents, uniref, bndlayer_refine, bndlayer_refine_with_elements
 export boundary_nodes, set_bnd_numbers!, set_bnd_periodic!, unique_mesh_nodes
+
+# meshgen/
 export mshhypercube, mshcube, mshsquare, mshline, mshcircle
 export ex1mesh, ex1solution, gmsh_sphere
+export mshairfoil, airfoil_geo, airfoil_coordinates, naca4
 
 # basis/
 export jacobi, djacobi, legendre, dlegendre, legendre01, dlegendre01
@@ -68,8 +72,11 @@ include("basis/finite_element.jl")
 include("mesh/high_order_mesh.jl")
 include("mesh/mesh_utils.jl")
 include("mesh/refinement.jl")
-include("mesh/basic_meshes.jl")
-include("mesh/sample_meshes.jl")
+
+# meshgen/
+include("meshgen/basic_meshes.jl")
+include("meshgen/sample_meshes.jl")
+include("meshgen/airfoil.jl")
 
 # fem/
 include("fem/dg_utils.jl")

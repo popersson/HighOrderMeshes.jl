@@ -20,7 +20,9 @@ block elements. Single element type and single polynomial degree per mesh.
 
 ## Layout
 
-- `src/mesh/`: element geometry, the mesh struct, refinement, basic meshes.
+- `src/mesh/`: element geometry, the mesh struct, refinement.
+- `src/meshgen/`: mesh generators: basic and sample meshes, `mshairfoil`
+  (with sample airfoil coordinates in `airfoils/`).
 - `src/basis/`: polynomials, quadrature, the reference element.
 - `src/io/`: `.hom` binary format, Gmsh import, VTK and 3DG export.
 - `src/viz/`: backend-independent plotting geometry; Makie extension in `ext/`.

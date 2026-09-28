@@ -15,7 +15,26 @@ Isoparametric h-refinement of curved 2D quad and triangle meshes, ported from
 - `bndlayer_refine(m, bnds, nlayers)` refines quad meshes anisotropically
   towards the boundaries `bnds`; `bndlayer_refine_with_elements` also returns
   the indices of the boundary layer elements.
-- Example `examples/naca/mknaca1msh.jl`: NACA 0012 mesh with boundary layers.
+- `mshairfoil(foil; aoa, ...)` meshes the region around an airfoil with
+  curved quads through gmsh: a structured band along the airfoil, a
+  structured wedge along a wake line at the angle `aoa`, and unstructured
+  quads elsewhere, with no triangles and no irregular nodes on the wall.
+  Boundary layers continue into the wake as in a C-mesh and end one by one
+  downstream. Keywords set the wall spacing, the wake stretching and the
+  near-field sizes, for RANS as well as wall-resolved LES meshes.
+  `airfoil_geo` returns the generated gmsh `.geo` file.
+- `airfoil_coordinates` reads Selig and Lednicer coordinate files and the
+  sample airfoils `:naca0012` and `:rae2822`; `naca4(code)` generates NACA
+  4-digit airfoils.
+- The mesh generators moved to the new directory `src/meshgen/`.
+- Examples `examples/naca/mknaca1msh.jl` (wall-resolved LES) and
+  `mknaca2msh.jl` (RANS) are now calls to `mshairfoil`. The old `naca.geo`
+  moved to `test/data/`.
+- `gmshstr2msh` has a `verbose` keyword.
+- Fix: `unique_mesh_nodes` merged distinct nodes of thin elements far from
+  the origin (boundary layers of about 1e-5 in a domain of size 200), which
+  broke `bndlayer_refine` after about 9 layers. Its default tolerance now
+  stays below the smallest node distance within an element.
 - Fix: Gmsh physical names containing spaces were cut at the first space.
 
 ## v0.3.1

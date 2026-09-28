@@ -265,13 +265,14 @@ function rungmsh2msh(gmshfname; porder=1, cmdadd="")
 end
 
 """
-    gmshstr2msh(geostr; porder=1, cmdadd="")
+    gmshstr2msh(geostr; porder=1, cmdadd="", verbose=true)
 
 Write the Gmsh geometry string `geostr` to a temporary `.geo` file, mesh it
 with the `gmsh` command-line tool, and return the result as a `HighOrderMesh`.
-Requires `gmsh` to be on the system `PATH`.
+Requires `gmsh` to be on the system `PATH`. Without `verbose`, neither the
+gmsh output nor the boundary names are printed.
 """
-function gmshstr2msh(geostr; porder=1, cmdadd="")
+function gmshstr2msh(geostr; porder=1, cmdadd="", verbose=true)
     fbase = tempname()
     fin   = fbase * ".geo"
     fout  = fbase * ".msh"
@@ -279,8 +280,9 @@ function gmshstr2msh(geostr; porder=1, cmdadd="")
         println(io, geostr)
     end
     cmdadd isa String && (cmdadd = split(cmdadd))
+    verbose || (cmdadd = [cmdadd; "-v"; "0"])
     run(`gmsh -3 -format msh2 -o $fout $fin -order $porder $cmdadd`)
-    msh = gmsh2msh(fout)
+    msh = gmsh2msh(fout; verbose)
     rm(fin);  rm(fout)
     msh
 end

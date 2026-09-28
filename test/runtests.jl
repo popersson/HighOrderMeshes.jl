@@ -707,7 +707,7 @@ end
 
         # NACA mesh: the element counts agree with 3DG's mknaca1msh(1, 3).
         if Sys.which("gmsh") !== nothing
-            naca = joinpath(pkgdir(HighOrderMeshes), "examples", "naca", "naca.geo")
+            naca = joinpath(@__DIR__, "data", "naca.geo")
             m  = set_lobatto_nodes(rungmsh2msh(naca; porder=3, cmdadd="-v 0"))
             m1 = uniref(m)
             m2 = bndlayer_refine(m1, 1, 3)
@@ -715,6 +715,95 @@ end
             @test nnodes(m2) == conforming_nnodes(m2)
             @test mesh_area(m2) ≈ mesh_area(m) rtol=1e-10
             @test sort(unique(bndtag.(filter(isboundary, m2.nb)))) == [1, 2]
+        end
+    end
+
+    @testset "Airfoil meshes" begin
+        H = HighOrderMeshes
+        # Coordinates: sample files, Lednicer format, NACA 4-digit formula.
+        X = airfoil_coordinates(:naca0012)
+        @test size(X) == (105, 2) && X[1,:] == X[end,:] == [1, 0] && X[53,:] == [0, 0]
+        X = airfoil_coordinates(:rae2822)
+        @test size(X) == (129, 2) && X[1,:] == X[end,:] == [1, 0] && X[65,:] == [0, 0]
+        mktempdir() do dir
+            fname = joinpath(dir, "lednicer.dat")
+            open(fname, "w") do io
+                println(io, "RAE 2822\n65. 65.\n")
+                foreach(i -> println(io, X[i,1], " ", X[i,2]), [65:-1:1; 65:129])
+            end
+            @test airfoil_coordinates(fname) == X
+        end
+        @test_throws ErrorException airfoil_coordinates(:nosuchfoil)
+        X = naca4("0012")
+        @test size(X) == (401, 2) && X[1,:] == X[end,:]
+        @test X[1,:] ≈ [1, 0] atol=1e-15
+        @test X[1:201,2] ≈ -X[401:-1:201,2]
+        @test maximum(X[:,2]) ≈ 0.06 rtol=1e-3               # 12% thickness
+        X = naca4("2412")
+        ix = argmin(abs.(X[1:201,1] .- 0.4))                 # max camber 2% at 40%
+        @test (X[ix,2] + X[402-ix,2]) / 2 ≈ 0.02 atol=1e-3
+        @test_throws ErrorException naca4("241")
+
+        # Not-a-knot splines reproduce cubics; the stretching hits its end spacings.
+        t  = (0:19) ./ 19 .+ 0.02 .* sin.(1:20)            # nonuniform knots
+        sp = H._CubicSpline(t, [t.^3 .- t  2t.^2 .+ 1])
+        for s in range(t[1], t[end], length=33)
+            @test H._spline(sp, s) ≈ [s^3 - s, 2s^2 + 1] atol=1e-12
+            @test H._dspline(sp, s) ≈ [3s^2 - 1, 4s] atol=1e-10
+        end
+        u = H._stretching(20, 0.01, 0.002)
+        @test u[1] == 0 && u[end] ≈ 1 && all(diff(u) .> 0)
+        @test u[2] - u[1] ≈ 0.01 && u[end] - u[end-1] ≈ 0.002
+        # An open trailing edge is closed at the midpoint of the gap.
+        X = naca4("0012"); X[1,2] += 0.002; X[end,2] -= 0.002
+        g = H._airfoil_spline(X)
+        @test H._spline(g.sp, 0.0) ≈ [1, 0] atol=1e-15
+        @test H._spline(g.sp, g.T[end]) ≈ [1, 0] atol=1e-15
+
+        if Sys.which("gmsh") !== nothing
+            function mesh_area(m)
+                ξ, w = quadrature(elgeom(m), 3*porder(m) + 2)
+                J = interpolate(dshapefcns(m.fe, ξ), dg_nodes(m))
+                dets = J[:,:,1,1] .* J[:,:,2,2] .- J[:,:,1,2] .* J[:,:,2,1]
+                @assert minimum(dets) > 0
+                sum(w .* dets)
+            end
+            function foil_area(X)
+                g = H._airfoil_spline(X)
+                P = reduce(vcat, (H._spline(g.sp, τ)' for τ in range(0, g.T[end], length=100001)))
+                sum(P[i,1]*P[i+1,2] - P[i+1,1]*P[i,2] for i in 1:size(P,1)-1) / 2
+            end
+            fmap = facemap(Block{2}())
+            for (foil, X, aoa) in ((:naca0012, airfoil_coordinates(:naca0012), 0),
+                                   (:rae2822, airfoil_coordinates(:rae2822), 2),
+                                   (naca4("2412"), naca4("2412"), 4))
+                R, nlayers = 10, 3
+                m = mshairfoil(foil; aoa, R, hmax=2, nfoil=24, nbndlayers=nlayers)
+                @test elgeom(m) == Block{2}() && porder(m) == 3
+                @test sort(unique(bndtag.(filter(isboundary, m.nb)))) == [1, 2]
+                # The area is exact up to the wall geometry, and no element is inverted.
+                @test mesh_area(m) ≈ 6R^2 - foil_area(X) atol=1e-6
+                # Wall faces: 24 per surface, lengths hle and hte at the ends; the
+                # layers are exact halvings of the band layers (tband/nband).
+                cel = m.el[corner_nodes(m.fe), :]
+                wall = [ (j, e) for e in axes(m.nb,2), j in 1:4 if isboundary(m.nb[j,e]) && bndtag(m.nb[j,e]) == 1 ]
+                @test length(wall) == 48
+                len(j, e) = hypot((m.x[cel[fmap[1,j],e],:] - m.x[cel[fmap[2,j],e],:])...)
+                xmid(j, e) = sum(m.x[cel[fmap[:,j],e],1]) / 2
+                @test minimum(len(f...) for f in wall if xmid(f...) > 0.9) ≈ 0.004 rtol=1e-4
+                @test minimum(len(f...) for f in wall if xmid(f...) < 0.1) ≈ 0.004 rtol=1e-2
+                heights = map(filter(f -> 0.45 < xmid(f...) < 0.55, wall)) do (j, e)
+                    a, b = m.x[cel[fmap[1,j],e],:], m.x[cel[fmap[2,j],e],:]
+                    n = [a[2] - b[2], b[1] - a[1]] / hypot((b - a)...)
+                    maximum(abs((m.x[k,:] - a)' * n) for k in setdiff(cel[:,e], cel[fmap[:,j],e]))
+                end
+                @test heights ≈ fill(0.02 / 2 / 2^nlayers, length(heights)) rtol=1e-3
+                # The layers pass through the TE: its 4 elements are 2 band and 2 wedge ones.
+                iTE = findfirst(i -> m.x[i,:] ≈ X[1,:], axes(m.x, 1))
+                @test count(==(iTE), cel) == 4
+            end
+            @test_throws ErrorException airfoil_geo(; aoa=40)
+            @test_throws ErrorException airfoil_geo(; nfoil=25)
         end
     end
 
