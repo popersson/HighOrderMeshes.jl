@@ -69,6 +69,121 @@ function boundary_nodes(m::HighOrderMesh, bndnbrs=nothing)
 end
 
 """
+    boundary_distance(m::HighOrderMesh, bndnbrs=nothing; nsub=32)
+
+Distance from every DG node of `m` to the nearest boundary face, as an
+`ns × nel` matrix in the node layout of [`dg_nodes`](@ref). If `bndnbrs` is
+given (an integer or collection of integers), only faces with those boundary
+numbers count; otherwise all boundary faces do. Typical uses are the wall
+distance of turbulence models and sizing functions near a boundary.
+
+Each curved face is sampled on a uniform grid of its reference element with
+`nsub` intervals per edge and replaced by the segments (2D) or triangles (3D)
+between the samples. The distance is exact for straight faces, and otherwise
+off by about `κ h^2 / 8` for a face of size `h` and curvature `κ`. Faces whose
+bounding box is farther away than the closest face found so far are skipped,
+but there is no spatial search structure: the cost grows like the number of
+nodes times the number of boundary faces.
+
+```julia
+msh = mshairfoil(:naca0012; aoa=0)
+d   = boundary_distance(msh, 1; nsub=128)   # distance to the airfoil
+```
+"""
+function boundary_distance(m::HighOrderMesh{D,G,T}, bndnbrs=nothing; nsub::Integer=32) where {D,G,T}
+    D in (2, 3) || error("boundary_distance supports 2D and 3D meshes")
+    f2n = mkface2nodes(m)
+    fe  = subelement(m.fe, D-1)
+    ξ, simplices = _face_samples(elgeom(fe), nsub)
+    N   = shapefcns(fe, ξ)
+    faces = Vector{SVector{D,T}}[]
+    for iel in axes(m.nb,2), j in axes(m.nb,1)
+        nb = m.nb[j,iel]
+        if isboundary(nb) && (isnothing(bndnbrs) || bndtag(nb) ∈ bndnbrs)
+            xs = N * m.x[m.el[f2n[:,j],iel],:]
+            push!(faces, [ SVector{D,T}(r) for r in eachrow(xs) ])
+        end
+    end
+    isempty(faces) && error("No boundary faces with the numbers $bndnbrs")
+    lo = [ reduce((a,b) -> min.(a,b), X) for X in faces ]
+    hi = [ reduce((a,b) -> max.(a,b), X) for X in faces ]
+    boxdist(p, f) = norm(max.(lo[f] .- p, p .- hi[f], zero(T)))
+    facedist(p, f) = minimum(s -> _simplex_distance(p, map(k -> faces[f][k], s)...), simplices)
+
+    x = dg_nodes(m)
+    d = zeros(T, size(x,1), size(x,2))
+    for iel in axes(x,2), i in axes(x,1)
+        p = SVector{D,T}(ntuple(k -> x[i,iel,k], D))
+        dmin = facedist(p, argmin(f -> boxdist(p, f), eachindex(faces)))
+        for f in eachindex(faces)
+            boxdist(p, f) < dmin && (dmin = min(dmin, facedist(p, f)))
+        end
+        d[i,iel] = dmin
+    end
+    d
+end
+
+# Uniform sample points ξ (rows) on a face reference element with n intervals
+# per edge, in the canonical node order (first index fastest), and the segments
+# or triangles between them as tuples of row indices.
+_face_samples(::Block{1}, n) = collect(reshape((0:n) ./ n, :, 1)), [ (i, i+1) for i in 1:n ]
+
+function _face_samples(::Block{2}, n)
+    ix(i, j) = 1 + i + (n+1)*j
+    ξ = [ ij[c] / n for ij in [ (i, j) for j in 0:n for i in 0:n ], c in 1:2 ]
+    tris = NTuple{3,Int}[]
+    for j in 0:n-1, i in 0:n-1
+        push!(tris, (ix(i,j), ix(i+1,j), ix(i+1,j+1)), (ix(i,j), ix(i+1,j+1), ix(i,j+1)))
+    end
+    ξ, tris
+end
+
+function _face_samples(::Simplex{2}, n)
+    ijs = [ (i, j) for j in 0:n for i in 0:n-j ]
+    ix  = Dict(ij => k for (k, ij) in enumerate(ijs))
+    ξ   = [ ij[c] / n for ij in ijs, c in 1:2 ]
+    tris = NTuple{3,Int}[]
+    for (i, j) in ijs
+        i + j <= n-1 && push!(tris, (ix[(i,j)], ix[(i+1,j)], ix[(i,j+1)]))
+        i + j <= n-2 && push!(tris, (ix[(i+1,j)], ix[(i+1,j+1)], ix[(i,j+1)]))
+    end
+    ξ, tris
+end
+
+# Distance from p to the segment ab
+function _simplex_distance(p, a, b)
+    ab = b - a
+    l2 = dot(ab, ab)
+    t  = l2 > 0 ? clamp(dot(p - a, ab) / l2, 0, 1) : zero(l2)
+    norm(p - a - t * ab)
+end
+
+# Distance from p to the triangle abc, with the closest point found from the
+# Voronoi regions of the vertices and edges (Ericson, Real-Time Collision
+# Detection, 2005)
+function _simplex_distance(p, a, b, c)
+    ab, ac, ap = b - a, c - a, p - a
+    d1, d2 = dot(ab, ap), dot(ac, ap)
+    d1 <= 0 && d2 <= 0 && return norm(ap)
+    bp = p - b
+    d3, d4 = dot(ab, bp), dot(ac, bp)
+    d3 >= 0 && d4 <= d3 && return norm(bp)
+    vc = d1*d4 - d3*d2
+    vc <= 0 && d1 >= 0 && d3 <= 0 && return _simplex_distance(p, a, b)
+    cp = p - c
+    d5, d6 = dot(ab, cp), dot(ac, cp)
+    d6 >= 0 && d5 <= d6 && return norm(cp)
+    vb = d5*d2 - d1*d6
+    vb <= 0 && d2 >= 0 && d6 <= 0 && return _simplex_distance(p, a, c)
+    va = d3*d6 - d5*d4
+    va <= 0 && d4 - d3 >= 0 && d5 - d6 >= 0 && return _simplex_distance(p, b, c)
+    den = va + vb + vc
+    den > 0 || return min(_simplex_distance(p, a, b), _simplex_distance(p, a, c),
+                          _simplex_distance(p, b, c))    # degenerate triangle
+    norm(ap - (vb/den) * ab - (vc/den) * ac)
+end
+
+"""
     set_bnd_numbers!(m::HighOrderMesh, bndexpr)
 
 Label each boundary face in `m.nb` with a boundary region number.

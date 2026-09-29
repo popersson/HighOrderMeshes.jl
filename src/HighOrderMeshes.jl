@@ -30,7 +30,7 @@ export HighOrderMesh, dg_nodes, elgeom, porder, nel
 export Neighbor, isboundary, bndtag
 export set_ref_nodes, set_degree, set_lobatto_nodes, mkface2nodes
 export refine, refine_with_parents, uniref, bndlayer_refine, bndlayer_refine_with_elements
-export boundary_nodes, set_bnd_numbers!, set_bnd_periodic!, unique_mesh_nodes
+export boundary_nodes, boundary_distance, set_bnd_numbers!, set_bnd_periodic!, unique_mesh_nodes
 
 # meshgen/
 export mshhypercube, mshcube, mshsquare, mshline, mshcircle

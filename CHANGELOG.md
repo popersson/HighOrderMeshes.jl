@@ -26,6 +26,10 @@ Isoparametric h-refinement of curved 2D quad and triangle meshes, ported from
 - `airfoil_coordinates` reads Selig and Lednicer coordinate files and the
   sample airfoils `:naca0012` and `:rae2822`; `naca4(code)` generates NACA
   4-digit airfoils.
+- `boundary_distance(m, bndnbrs; nsub)` returns the distance from every DG
+  node to the nearest face of the given boundaries (all by default), in 2D
+  and 3D, for example the wall distance of turbulence models. Curved faces are
+  sampled with `nsub` intervals per edge; straight faces are exact.
 - The mesh generators moved to the new directory `src/meshgen/`.
 - Examples `examples/naca/mknaca1msh.jl` (wall-resolved LES) and
   `mknaca2msh.jl` (RANS) are now calls to `mshairfoil`. The old `naca.geo`

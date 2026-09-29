@@ -589,6 +589,56 @@ end
         @test length(boundary_nodes(set_degree(mshsquare(2), 3), 1)) == 7
     end
 
+    @testset "Boundary distance" begin
+        # Straight faces: exact. mshsquare numbers x=0 as 1 and y=0 as 3.
+        m = mshsquare(3; p=3)
+        x = dg_nodes(m)
+        X, Y = x[:,:,1], x[:,:,2]
+        @test size(boundary_distance(m)) == size(X)
+        @test boundary_distance(m, 1) ≈ X atol=1e-14
+        @test boundary_distance(m, (1,3)) ≈ min.(X, Y) atol=1e-14
+        @test boundary_distance(m) ≈ min.(X, Y, 1 .- X, 1 .- Y) atol=1e-14
+        @test_throws ErrorException boundary_distance(m, 7)
+
+        cubedist(x) = min.(x[:,:,1], x[:,:,2], x[:,:,3], 1 .- x[:,:,1], 1 .- x[:,:,2], 1 .- x[:,:,3])
+        m = mshcube(2, 2, 2; p=2)
+        @test boundary_distance(m; nsub=4) ≈ cubedist(dg_nodes(m)) atol=1e-14
+
+        # Unit cube split into 6 tetrahedra (triangular faces)
+        vix(v) = 1 + v[1] + 2v[2] + 4v[3]
+        el = Int[]
+        for σ in ((1,2,3), (1,3,2), (2,1,3), (2,3,1), (3,1,2), (3,2,1))
+            v = [0, 0, 0]
+            push!(el, vix(v))
+            for k in σ
+                v[k] += 1
+                push!(el, vix(v))
+            end
+        end
+        xv = Float64[ v[c] for v in [ (i,j,k) for k in 0:1 for j in 0:1 for i in 0:1 ], c in 1:3 ]
+        m = set_degree(HighOrderMesh(xv, reshape(el, 4, 6); bndexpr=x -> [x'; 1 .- x'][:]), 3)
+        x = dg_nodes(m)
+        @test boundary_distance(m; nsub=4) ≈ cubedist(x) atol=1e-14
+        @test boundary_distance(m, 1; nsub=4) ≈ x[:,:,1] atol=1e-14
+
+        # Curved faces: close to the exact distance, and O(h^2) convergence in nsub
+        m = mshcircle(2; p=4)
+        x = dg_nodes(m)
+        r = sqrt.(x[:,:,1].^2 .+ x[:,:,2].^2)
+        d8, d32, dref = (boundary_distance(m; nsub=n) for n in (8, 32, 256))
+        @test maximum(abs.(d32 .- (1 .- r))) < 1e-4
+        @test maximum(abs.(d8 .- dref)) / maximum(abs.(d32 .- dref)) > 10
+
+        if Sys.which("gmsh") !== nothing
+            m = gmsh_sphere(porder=2)
+            x = dg_nodes(m)
+            r = sqrt.(sum(x.^2, dims=3)[:,:,1])
+            d4, d16, dref = (boundary_distance(m; nsub=n) for n in (4, 16, 64))
+            @test maximum(abs.(d16 .- (1 .- r))) < 1e-3   # p=2 geometry error ~2.5e-4
+            @test maximum(abs.(d4 .- dref)) / maximum(abs.(d16 .- dref)) > 10
+        end
+    end
+
     @testset "Refinement" begin
         # Area by quadrature of the Jacobian determinant; errors on inverted elements.
         function mesh_area(m)
