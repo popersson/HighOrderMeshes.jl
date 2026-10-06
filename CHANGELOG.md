@@ -40,6 +40,19 @@ Isoparametric h-refinement of curved 2D quad and triangle meshes, ported from
   broke `bndlayer_refine` after about 9 layers. Its default tolerance now
   stays below the smallest node distance within an element.
 - Fix: Gmsh physical names containing spaces were cut at the first space.
+- The finite element prototypes in `src/fem/` were rewritten. `CGData` and
+  `DGData` precompute the reference operators and the metric terms at the
+  quadrature points (`w·det J`, `J⁻¹`, `x`) instead of mesh-wide physical
+  basis gradients, which were 30-300 times the mesh storage without being
+  faster. Elemental kernels (`elmat_laplace!`, `elmat_mass!`, `elmats`,
+  `elvec_source`, `laplace_residual!`) write into preallocated memory;
+  `assemble_matrix`, `assemble_vector` and `strong_dirichlet` build CG
+  systems; `dg_laplace` (symmetric interior penalty with the penalty of
+  Shahbazi 2005) and `dg_convection` (upwind) build DG systems with boundary
+  conditions given per boundary number. `FEM_precomp`, `cg_poisson`, `cg_mass`,
+  `elres_source` and `strong_dirichlet!` are gone. Model problems:
+  `examples/fem/ex_cgpoisson.jl`, `ex_dgpoisson.jl`, `ex_dgconvection.jl` and
+  `ex_dgconvdiff.jl`.
 
 ## v0.3.1
 

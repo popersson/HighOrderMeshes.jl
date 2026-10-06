@@ -1,128 +1,128 @@
-struct FEM_precomp
-    dim      # Dimension
-    ng       # Nbr Gauss points
-    ns       # Nbr solution points
-    nel      # Nbr elements
-    gξ       # Gauss nodes (ng x D)
-    gw       # Gauss weights (ng)
-    gϕ       # Basis functions at Gauss points (ng x ns)
-    gϕξ      # Derivatives of gϕ w.r.t. ref coords (ng x ns x D)
-    gϕx      # Derivatives of gϕ w.r.t. xyz-coordinates (ng x ns x nel x D)
-    gJinv    # Element mapping inv Jacobian at all mesh Gauss points (ng x nel of SMatrix{D,D})
-    gwJdet   # gw-scaled gJinv (ng x nel)
-    gwϕ      # gwJdet-scaled gϕ (ng x ns x nel)
-    gwϕx     # gwJdet-scaled gϕx (ng x ns x nel x D)
-    gx       # xyz-coordinates at all mesh Gauss points (ng x nel x D)
-    gxξ      # Derivatives of gx w.r.t. ref coords (ng x nel x D x D)
-end
+###########################################################################
+## Elemental kernels and continuous Galerkin assembly
+#
+# Elemental matrices are written into slice e of a preallocated ns × ns × nel
+# array; B is a workspace of (at least) ng·D × ns. All matrix products are
+# BLAS calls on views; the per-point loops apply the metric terms.
 
-function Base.show(io::IO, pc::FEM_precomp)
-    print(io, "FEM_precomp: $(pc.dim)D, $(pc.ns) solution points, $(pc.ng) Gauss points, $(pc.nel) elements.")
-end
+"""
+    elmat_laplace!(K, d::FEMData, e, B)
 
-function FEM_precomp(m::HighOrderMesh{D}; quadrature_degree=3*porder(m)) where {D}
-    gξ,gw = quadrature(elgeom(m), quadrature_degree)
-    ns,nel = size(m.el)
-    ng = length(gw)
-
-    gϕ = shapefcns(m.fe, gξ)
-    gϕξ = dshapefcns(m.fe, gξ)
-
-    gx = interpolate(gϕ, dg_nodes(m))
-    gxξ = interpolate(gϕξ, dg_nodes(m))
-    
-    gJ = [ SMatrix{D,D}(view(gxξ,ig,iel,:,:)) for ig in 1:ng, iel in 1:nel ]
-    gJinv = inv.(gJ)
-    gwJdet = @. gw * det(gJ)
-
-    gϕx = similar(gϕξ, (ng, ns, nel, D))
-    gwϕx = similar(gϕx)
-    gwϕ = similar(gϕ, (ng, ns, nel))
-    for iel = 1:nel
-        for ig = 1:ng
-            gϕx[ig, :, iel, :] = gϕξ[ig,:,:] * gJinv[ig,iel]
-            gwϕx[ig, :, iel, :] = gwJdet[ig,iel] .* gϕx[ig,:,iel,:]
+Elemental Laplace matrix `K[:,:,e][i,j] = ∫ ∇ϕ_i·∇ϕ_j` of element `e`, computed
+as `ϕξ' B` with `B = (wJ J⁻¹J⁻ᵀ) ∇ξϕ` at every quadrature point. `B` is a
+workspace of size `ng·D × ns`.
+"""
+function elmat_laplace!(K, d::FEMData{D}, e, B) where {D}
+    r, met = d.ref, d.met
+    ng, ns = npoints(r), size(r.ϕ, 2)
+    @inbounds for g in 1:ng
+        Ji = met.Jinv[g, e]
+        G  = met.wJ[g, e] * (Ji * Ji')
+        for i in 1:ns
+            setgradvec!(B, G * gradvec(r.ϕξ, g, i, ng, Val(D)), g, i, ng)
         end
-        gwϕ[:, :, iel] = gwJdet[:,iel] .* gϕ
     end
-
-    FEM_precomp(D, ng, ns, nel, gξ, gw, gϕ, gϕξ, gϕx, gJinv, gwJdet, gwϕ, gwϕx, gx, gxξ)
+    mul!(view(K, :, :, e), r.ϕξ', view(B, 1:ng*D, :))
 end
 
-function elmat_mass(pc::FEM_precomp)
-    Mel = similar(pc.gϕ, (pc.ns,pc.ns,pc.nel))
-    for iel = 1:pc.nel
-        view(Mel, :, :, iel) .= elmat_mass(pc, iel)
+"""
+    elmat_mass!(M, d::FEMData, e, B)
+
+Elemental mass matrix `M[:,:,e] = ϕ' (wJ .* ϕ)` of element `e`. `B` is a
+workspace with at least `ng` rows and `ns` columns.
+"""
+function elmat_mass!(M, d::FEMData, e, B)
+    r, met = d.ref, d.met
+    ng = npoints(r)
+    Bm = view(B, 1:ng, :)
+    Bm .= view(met.wJ, :, e) .* r.ϕ
+    mul!(view(M, :, :, e), r.ϕ', Bm)
+end
+
+"""
+    elmats(kernel!, d::FEMData) -> K
+
+All elemental matrices of `kernel!` (for example [`elmat_laplace!`](@ref) or
+[`elmat_mass!`](@ref)) as an `ns × ns × nel` array.
+"""
+function elmats(kernel!, d::FEMData{D}) where {D}
+    ng, ns, ne = npoints(d.ref), nnodes(d.m.fe), nel(d.m)
+    K = zeros(eltype(d.ref.ϕ), ns, ns, ne)
+    B = zeros(eltype(d.ref.ϕ), ng*D, ns)
+    for e in 1:ne
+        kernel!(K, d, e, B)
     end
-    Mel
+    K
 end
 
-function elmat_mass(pc::FEM_precomp, iel)
-    cMel = pc.gϕ' * pc.gwϕ[:,:,iel]
-end
+"""
+    elvec_source(d::FEMData, f) -> F
 
-function elmat_laplace(pc::FEM_precomp)
-    Ael = similar(pc.gϕx, (pc.ns,pc.ns,pc.nel))
-    for iel = 1:pc.nel
-        view(Ael, :, :, iel) .= elmat_laplace(pc, iel)
+Elemental source vectors `F[i,e] = ∫ f ϕ_i` over element `e` for the function
+`f(x)`, as an `ns × nel` array.
+"""
+elvec_source(d::FEMData, f) = d.ref.ϕ' * (d.met.wJ .* f.(d.met.x))
+
+"""
+    laplace_residual!(R, Q, d::FEMData, U)
+
+Matrix-free `R = K U` for all elements (`U`, `R`: `ns × nel`) without forming
+the elemental Laplace matrices: `Q = ∇ξϕ U`, then `Q ← wJ J⁻¹J⁻ᵀ Q` at every
+point, then `R = ∇ξϕ' Q`. `Q` is a workspace of size `ng·D × nel`.
+"""
+function laplace_residual!(R, Q, d::FEMData{D}, U) where {D}
+    r, met = d.ref, d.met
+    ng, ne = npoints(r), nel(d.m)
+    mul!(Q, r.ϕξ, U)
+    @inbounds for e in 1:ne, g in 1:ng
+        Ji = met.Jinv[g, e]
+        setgradvec!(Q, met.wJ[g, e] * (Ji * (Ji' * gradvec(Q, g, e, ng, Val(D)))), g, e, ng)
     end
-    Ael
+    mul!(R, r.ϕξ', Q)
 end
 
-function elmat_laplace(pc::FEM_precomp, iel)
-    cAel = sum( (pc.gϕx[:,:,iel,d]' * pc.gwϕx[:,:,iel,d] for d = 1:pc.dim) )
+###########################################################################
+## Continuous Galerkin assembly
+
+"""
+    assemble_matrix(el, K) -> A
+
+Global sparse matrix on the mesh nodes from the elemental matrices `K`
+(`ns × ns × nel`) and the connectivity `el`.
+"""
+function assemble_matrix(el, K::AbstractArray{<:Any,3})
+    ns, ne = size(el)
+    ii = reshape(repeat(el, ns, 1), ns, ns, ne)      # ii[i,j,e] = el[i,e]
+    jj = permutedims(ii, (2, 1, 3))                  # jj[i,j,e] = el[j,e]
+    sparse(vec(ii), vec(jj), vec(K), maximum(el), maximum(el))
 end
 
-function elres_source(pc::FEM_precomp, iel, fcn_rhs=x->1)
-    f = [ fcn_rhs(view(pc.gx, ig, iel, :)) for ig = 1:pc.ng ]
-    cfel = (f' * pc.gwϕ[:,:,iel])[:]
-end
+"""
+    assemble_vector(el, F) -> f
 
-function assemble_matrix(el, fcn_Ael)
-    ns,nel = size(el)
-    ii = reshape(repeat(el, ns, 1), ns, ns, nel)
-    jj = permutedims(ii, (2,1,3))
-    Ael = cat( (fcn_Ael(iel) for iel = 1:nel)..., dims=3)
-    sparse(ii[:], jj[:], Ael[:])
-end
-
-function assemble_vector(el, fcn_fel)
-    ns,nel = size(el)
-    fel = cat( (fcn_fel(iel) for iel = 1:nel)..., dims=2)
-    f = zeros(eltype(fel), maximum(el))
-    for iel in 1:nel
-        f[el[:,iel]] .+= fel[:,iel]
+Global vector on the mesh nodes from the elemental vectors `F` (`ns × nel`)
+and the connectivity `el`.
+"""
+function assemble_vector(el, F::AbstractMatrix)
+    f = zeros(eltype(F), maximum(el))
+    for e in axes(el, 2)
+        f[view(el, :, e)] .+= view(F, :, e)
     end
     f
 end
 
-function strong_dirichlet!(A, f, bndix)
-    A[bndix,:] .= 0
-    A[:,bndix] .= 0
-    A[bndix,bndix] .= I(length(bndix))
-    f[bndix] .= 0
-end
-
-function cg_mass(m::HighOrderMesh, pc::FEM_precomp)
-    A = assemble_matrix(m.el, i -> elmat_mass(pc, i))
-end
-
 """
-    cg_poisson(m::HighOrderMesh, pc::FEM_precomp, fcn_rhs=xy->xy[1]^2, dirichlet_bnds=nothing)
+    strong_dirichlet(A, f, nodes, ud=0) -> (A, f)
 
-Examples:
-```julia
-# Solve and plot -∇²u = x² with zero Dirichlet boundary conditions on the unit circle
-m = mshcircle(2,p=3)
-pc = FEM_precomp(m)
-u,A,f = cg_poisson(m, pc, xy->xy[1]^2)
-plot(m,u, contours=10, mesh_edges=true)
-```
+Impose `u = ud` strongly at the given nodes of the system `A u = f`: the
+rows and columns of `A` are replaced by the identity and the known values are
+moved to the right-hand side, which keeps a symmetric `A` symmetric. `ud` is
+a vector of values at `nodes`, or zero.
 """
-function cg_poisson(m::HighOrderMesh, pc::FEM_precomp, fcn_rhs=xy->xy[1]^2, dirichlet_bnds=nothing)
-    A = assemble_matrix(m.el, i -> elmat_laplace(pc, i))
-    f = assemble_vector(m.el, i -> elres_source(pc, i, fcn_rhs))
-    strong_dirichlet!(A, f, boundary_nodes(m, dirichlet_bnds))
-    u = A \ f
-    u,A,f
+function strong_dirichlet(A, f, nodes, ud=zeros(eltype(f), length(nodes)))
+    n    = length(f)
+    keep = ones(eltype(f), n); keep[nodes] .= 0
+    u    = zeros(eltype(f), n); u[nodes] = ud
+    P, Pd = Diagonal(keep), Diagonal(1 .- keep)
+    P * A * P + Pd, P * (f - A * u) + u
 end

@@ -12,7 +12,7 @@ hexahedra) elements at arbitrary polynomial order.
 | `mesh/`        | Element geometry, mesh struct, refinement             |
 | `meshgen/`     | Mesh generators: basic, sample and airfoil meshes     |
 | `basis/`       | Legendre polynomials, quadrature, reference elements  |
-| `fem/`         | FEM assembly, CG solvers, DG utilities                |
+| `fem/`         | Precomputed data, CG assembly, DG operators           |
 | `viz/`         | Backend-agnostic mesh and solution visualization data |
 | `io/`          | Binary `.hom` format, Gmsh import, VTK export         |
 
@@ -49,10 +49,10 @@ export shapefcns, dshapefcns, interpolate
 
 # fem/
 export mkldgswitch, align_with_ldgswitch!
-export FEM_precomp
-export elmat_mass, elmat_laplace, elres_source
-export assemble_matrix, assemble_vector, strong_dirichlet!
-export cg_mass, cg_poisson
+export RefOps, Metric, FaceMetric, FEMData, CGData, DGData, npoints, jacobians, face_refops
+export elmat_laplace!, elmat_mass!, elmats, elvec_source, laplace_residual!
+export assemble_matrix, assemble_vector, strong_dirichlet
+export dg_laplace, dg_convection
 
 # viz/
 export viz_mesh, viz_solution, mesh_function_type
@@ -80,7 +80,9 @@ include("meshgen/airfoil.jl")
 
 # fem/
 include("fem/dg_utils.jl")
+include("fem/fem_data.jl")
 include("fem/assembly.jl")
+include("fem/dg_operators.jl")
 
 # viz/
 include("viz/post_processing.jl")

@@ -477,17 +477,103 @@ end
         end
     end
 
-    @testset "CG Poisson (experimental)" begin
-        # Solve -∇²u = 1 with zero Dirichlet boundary conditions on the unit circle
-        for n = 1:4, porder = 1:4
-            m = mshcircle(n, p=porder)
-            pc = FEM_precomp(m)
-            u,A,f = cg_poisson(m, pc, xy->1)
-            uexact = (1 .- sum(m.x.^2,dims=2)) / 4
-            error = maximum(abs.(u[:] - uexact[:]))
-            # Assume O(h^{p+1}) convergence, with fitted constant (upper bound)
-            error_bound = (0.2 / n) ^ (porder + 1)
-            @test error < error_bound
+    @testset "FEM assembly" begin
+        # L2 error of a DG field U against the function uex, with the quadrature of d
+        l2err(d, U, uex) = sqrt(sum(d.met.wJ .* (d.ref.ϕ * U .- uex.(d.met.x)).^2))
+        rate(errs) = log2(errs[1] / errs[2])
+
+        @testset "CG Poisson" begin
+            # Solve -∇²u = 1 with zero Dirichlet boundary conditions on the unit circle
+            for n = 1:4, porder = 1:4
+                m = mshcircle(n, p=porder)
+                d = CGData(m)
+                A = assemble_matrix(m.el, elmats(elmat_laplace!, d))
+                f = assemble_vector(m.el, elvec_source(d, xy -> 1.0))
+                A, f = strong_dirichlet(A, f, boundary_nodes(m))
+                u = A \ f
+                uexact = (1 .- sum(m.x.^2, dims=2)) / 4
+                error = maximum(abs.(u[:] - uexact[:]))
+                # Assume O(h^{p+1}) convergence, with fitted constant (upper bound)
+                error_bound = (0.2 / n) ^ (porder + 1)
+                @test error < error_bound
+            end
+        end
+
+        @testset "CG mass, residual and Dirichlet data" begin
+            m = mshcircle(2, p=3)
+            d = CGData(m)
+            M = assemble_matrix(m.el, elmats(elmat_mass!, d))
+            @test sum(M) ≈ π rtol=1e-4                       # area of the (p=3) unit disk
+            A = assemble_matrix(m.el, elmats(elmat_laplace!, d))
+            @test norm(A - A') < 1e-12 * norm(A)
+            u0 = randn(nnodes(m))
+            R  = laplace_residual!(zeros(size(m.el)), zeros(2npoints(d.ref), nel(m)), d, u0[m.el])
+            @test assemble_vector(m.el, R) ≈ A * u0            # matrix-free residual
+            bnd = boundary_nodes(m)
+            A, f = strong_dirichlet(A, zeros(nnodes(m)), bnd, m.x[bnd, 1])
+            @test A \ f ≈ m.x[:, 1] atol=1e-10                # u = x is harmonic and in the space
+        end
+
+        @testset "DG interior penalty" begin
+            uex(x) = sin(pi*x[1]) * sin(pi*x[2]);  fex(x) = 2pi^2 * uex(x)
+            for p in 1:3
+                errs = Float64[]
+                for n in (4, 8)
+                    m = mshsquare(n, p=p)
+                    d = DGData(m)
+                    A, b = dg_laplace(d, Dict(k => uex for k in 1:4))
+                    @test norm(A - A') < 1e-12 * norm(A)
+                    U = reshape(A \ vec(elvec_source(d, fex) + b), size(m.el))
+                    push!(errs, l2err(d, U, uex))
+                end
+                @test rate(errs) > p + 0.5
+            end
+            # curved triangles, Dirichlet on boundaries 1 and 3, Neumann on 2 and 4
+            uex2(x) = cos(pi*x[1]) * cos(pi*x[2]);  fex2(x) = 2pi^2 * uex2(x)
+            errs = Float64[]
+            for nref in (2, 3)
+                m = ex1mesh(eg=Simplex{2}(), nref=nref)
+                d = DGData(m)
+                A, b = dg_laplace(d, Dict(1 => uex2, 3 => uex2))
+                U = reshape(A \ vec(elvec_source(d, fex2) + b), size(m.el))
+                push!(errs, l2err(d, U, uex2))
+            end
+            @test rate(errs) > 3.4
+        end
+
+        @testset "DG convection and convection-diffusion" begin
+            vel(x) = (1.0, 2x[1])                                  # divergence free
+            m = mshsquare(6, p=3)
+            d = DGData(m)
+            A, b = dg_convection(d, vel, Dict(k => x -> 1.0 for k in 1:4))
+            @test maximum(abs, A \ vec(b) .- 1) < 1e-10           # constant state preserved
+            uex(x) = sin(pi*x[1]) * sin(pi*x[2])
+            fex(x) = pi*cos(pi*x[1])*sin(pi*x[2]) + 2x[1]*pi*sin(pi*x[1])*cos(pi*x[2])
+            for p in (1, 3)
+                errs = Float64[]
+                for n in (4, 8)
+                    m = mshsquare(n, p=p)
+                    d = DGData(m)
+                    A, b = dg_convection(d, vel, Dict(1 => uex, 3 => uex))   # inflow boundaries
+                    U = reshape(A \ vec(elvec_source(d, fex) + b), size(m.el))
+                    push!(errs, l2err(d, U, uex))
+                end
+                @test rate(errs) > p + 0.5
+            end
+            ε = 0.1
+            uex3(x) = sin(pi*x[1]/2) * sin(pi*x[2]/2)              # ∂u/∂n = 0 on the outflow boundaries
+            fcd(x) = ε*(pi^2/2)*uex3(x) + (pi/2)*cos(pi*x[1]/2)*sin(pi*x[2]/2) + 2x[1]*(pi/2)*sin(pi*x[1]/2)*cos(pi*x[2]/2)
+            errs = Float64[]
+            for n in (4, 8)
+                m = mshsquare(n, p=3)
+                d = DGData(m)
+                bc = Dict(1 => uex3, 3 => uex3)
+                C, bC = dg_convection(d, vel, bc)
+                K, bK = dg_laplace(d, bc)
+                U = reshape((C + ε*K) \ vec(elvec_source(d, fcd) + bC + ε*bK), size(m.el))
+                push!(errs, l2err(d, U, uex3))
+            end
+            @test rate(errs) > 3.5
         end
     end
 
