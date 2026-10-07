@@ -21,7 +21,7 @@ msh = ex1mesh(eg=Simplex{2}())                  # sinusoidally curved sample mes
 msh = gmsh_sample(:circle; h=0.1, p=3)          # unstructured curved triangles
 msh = gmsh_sample(:sphere; h=0.3, p=2)          # unstructured curved tetrahedra
 msh = mshairfoil(:naca0012; aoa=5)              # curved quads around an airfoil
-msh = rungmsh2msh("mygeometry.geo"; porder=3)   # your own gmsh geometry
+msh = rungmsh2msh("mygeometry.geo"; p=3)        # your own gmsh geometry
 
 # DistMesh installed (] add DistMesh):
 using DistMesh

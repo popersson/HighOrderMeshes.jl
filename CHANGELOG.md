@@ -24,6 +24,9 @@ Mesh generation tools ported from 3DG's `smoothdgnodes` and sample meshes.
   boundary numbers as in `mshsquare` and `mshcube`. It sets both the minimum
   and maximum gmsh mesh size to `h`, so `gmsh_sample(:sphere; h=0.5)` is
   coarser than `gmsh_sphere(hmax=0.5)` was.
+- Breaking: the degree keyword is `p` everywhere. `mshairfoil`,
+  `rungmsh2msh` and `gmshstr2msh` took `porder`; old calls now throw a
+  `MethodError` for the unsupported keyword.
 - The docs page "Basic meshes" is now "Mesh generation", with a cheat sheet;
   the module docstring (`?HighOrderMeshes`) has the same cheat sheet.
 

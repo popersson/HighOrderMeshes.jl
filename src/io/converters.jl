@@ -249,30 +249,31 @@ function gmsh2msh(gmsh_fname; verbose=true)
 end
 
 """
-    rungmsh2msh(gmshfname; porder=1, cmdadd="")
+    rungmsh2msh(gmshfname; p=1, cmdadd="")
 
 Run the `gmsh` command-line tool on a `.geo` file, then import the resulting
-mesh as a `HighOrderMesh`. Requires `gmsh` to be on the system `PATH`.
+mesh of degree `p` as a `HighOrderMesh`. Requires `gmsh` to be on the system `PATH`.
 `cmdadd` is an optional string (or vector of strings) of extra Gmsh flags.
 """
-function rungmsh2msh(gmshfname; porder=1, cmdadd="")
+function rungmsh2msh(gmshfname; p=1, cmdadd="")
     fout = tempname() * ".msh"
     cmdadd isa String && (cmdadd = split(cmdadd))
-    run(`gmsh -3 -format msh2 -o $fout $gmshfname -order $porder $cmdadd`)
+    run(`gmsh -3 -format msh2 -o $fout $gmshfname -order $p $cmdadd`)
     msh = gmsh2msh(fout)
     rm(fout)
     msh
 end
 
 """
-    gmshstr2msh(geostr; porder=1, cmdadd="", verbose=true)
+    gmshstr2msh(geostr; p=1, cmdadd="", verbose=true)
 
 Write the Gmsh geometry string `geostr` to a temporary `.geo` file, mesh it
-with the `gmsh` command-line tool, and return the result as a `HighOrderMesh`.
+with the `gmsh` command-line tool, and return the result as a `HighOrderMesh`
+of degree `p`.
 Requires `gmsh` to be on the system `PATH`. Without `verbose`, neither the
 gmsh output nor the boundary names are printed.
 """
-function gmshstr2msh(geostr; porder=1, cmdadd="", verbose=true)
+function gmshstr2msh(geostr; p=1, cmdadd="", verbose=true)
     fbase = tempname()
     fin   = fbase * ".geo"
     fout  = fbase * ".msh"
@@ -281,7 +282,7 @@ function gmshstr2msh(geostr; porder=1, cmdadd="", verbose=true)
     end
     cmdadd isa String && (cmdadd = split(cmdadd))
     verbose || (cmdadd = [cmdadd; "-v"; "0"])
-    run(`gmsh -3 -format msh2 -o $fout $fin -order $porder $cmdadd`)
+    run(`gmsh -3 -format msh2 -o $fout $fin -order $p $cmdadd`)
     msh = gmsh2msh(fout; verbose)
     rm(fin);  rm(fout)
     msh

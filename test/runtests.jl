@@ -557,7 +557,7 @@ end
             end
 
             for geo in geos, p in 1:5
-                m       = gmshstr2msh(geo; porder=p, cmdadd="-v 0")
+                m       = gmshstr2msh(geo; p, cmdadd="-v 0")
                 fe      = m.fe
                 xdg     = dg_nodes(m)
                 corners = xdg[corner_nodes(fe), :, :]
@@ -935,7 +935,7 @@ end
         # NACA mesh: the element counts agree with 3DG's mknaca1msh(1, 3).
         if Sys.which("gmsh") !== nothing
             naca = joinpath(@__DIR__, "data", "naca.geo")
-            m  = set_lobatto_nodes(rungmsh2msh(naca; porder=3, cmdadd="-v 0"))
+            m  = set_lobatto_nodes(rungmsh2msh(naca; p=3, cmdadd="-v 0"))
             m1 = uniref(m)
             m2 = bndlayer_refine(m1, 1, 3)
             @test nel(m1) == 6144 && nel(m2) == 6564

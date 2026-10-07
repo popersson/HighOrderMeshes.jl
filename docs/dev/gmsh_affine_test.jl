@@ -42,7 +42,7 @@ Mesh `geo` with Gmsh at order `p` and return the largest distance between the
 imported high-order nodes and the linear interpolation of the corner nodes.
 """
 function gmsh_affine_error(geo, p)
-    m  = gmshstr2msh(geo; porder=p, cmdadd="-v 0")
+    m  = gmshstr2msh(geo; p, cmdadd="-v 0")
     fe = m.fe
     xdg     = dg_nodes(m)
     corners = xdg[corner_nodes(fe), :, :]

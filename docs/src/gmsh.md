@@ -18,7 +18,7 @@ Physical Surface("domain", 1) = {1};
 
 ```julia
 using HighOrderMeshes
-msh = rungmsh2msh("square.geo"; porder=3)
+msh = rungmsh2msh("square.geo"; p=3)
 ```
 
 `rungmsh2msh` runs the `gmsh` executable (it must be on the system `PATH`)

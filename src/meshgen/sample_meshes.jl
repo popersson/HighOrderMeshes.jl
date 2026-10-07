@@ -94,7 +94,7 @@ function gmsh_sample(shape::Symbol=:circle; h=0.25, p=1, eg=nothing, verbose=fal
         Mesh.MeshSizeMax = $hgmsh;
         $opts
         """
-    gmshstr2msh(str; porder=p, verbose)
+    gmshstr2msh(str; p, verbose)
 end
 
 # Dimension and OpenCASCADE geometry with physical groups of each sample shape

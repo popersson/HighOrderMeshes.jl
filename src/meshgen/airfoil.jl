@@ -451,10 +451,10 @@ function _airfoil_layer_refine(m::HighOrderMesh{2,Block{2}}, TE, w, lengths)
 end
 
 """
-    mshairfoil(foil=:naca0012; aoa=0, porder=3, ref=0, nbndlayers=6,
+    mshairfoil(foil=:naca0012; aoa=0, p=3, ref=0, nbndlayers=6,
                layerlength=10, layerratio=0.5, verbose=false, kwargs...)
 
-Quad mesh of degree `porder` around an airfoil, generated with gmsh (which
+Quad mesh of degree `p` around an airfoil, generated with gmsh (which
 must be on the `PATH`). Boundary 1 is the airfoil and boundary 2 is the far
 field. `foil` is a sample name or coordinate file for
 [`airfoil_coordinates`](@ref), or a coordinate matrix in the same format,
@@ -504,10 +504,10 @@ msh = mshairfoil(:rae2822, aoa=2.79, nbndlayers=10)
 msh = mshairfoil(naca4("2412"), aoa=4, layerlength=Inf, layerratio=1)
 ```
 """
-function mshairfoil(foil=:naca0012; aoa=0.0, porder=3, ref=0, nbndlayers=6,
+function mshairfoil(foil=:naca0012; aoa=0.0, p=3, ref=0, nbndlayers=6,
                     layerlength=10.0, layerratio=0.5, verbose=false, kwargs...)
     X   = foil isa AbstractMatrix ? foil : airfoil_coordinates(foil)
-    m   = gmshstr2msh(airfoil_geo(X; aoa, kwargs...); porder, verbose)
+    m   = gmshstr2msh(airfoil_geo(X; aoa, kwargs...); p, verbose)
     m   = uniref(set_lobatto_nodes(m), ref)
     TE, w = _airfoil_wake(X, aoa)
     _airfoil_layer_refine(m, TE, w, [ layerlength * layerratio^(i-1) for i in 1:nbndlayers ])
