@@ -47,21 +47,80 @@ function ex1solution(m; dg=true)
 end
 
 """
-    gmsh_sphere(; hmax=0.5, porder=1)
+    gmsh_sample(shape=:circle; h=0.25, p=1, eg=Simplex{D}(), verbose=false)
 
-Generates a first-order mesh of a unit sphere using Gmsh's OpenCASCADE kernel.
-Requires `gmsh` to be on the system `PATH`.
+Unstructured mesh of degree `p` and element size about `h` of a simple
+domain, generated with gmsh (which must be on the system `PATH`). For curved
+domains gmsh places the high-order boundary nodes on the exact geometry.
+
+| `shape`   | Domain               | Boundary regions                                |
+|:--------- |:-------------------- |:----------------------------------------------- |
+| `:square` | `[0,1]^2`            | `1..4`: `xmin, xmax, ymin, ymax`, as `mshsquare` |
+| `:circle` | unit disk            | `1`: circle                                      |
+| `:cube`   | `[0,1]^3`            | `1..6`: `xmin, xmax, ..., zmax`, as `mshcube`    |
+| `:sphere` | unit ball            | `1`: sphere                                      |
+
+The element geometry `eg` defaults to triangles (2D) or tetrahedra (3D).
+`eg=Block{2}()` recombines the triangles into quads (Frontal-Delaunay with
+blossom full-quad recombination, which avoids the nearly flat corners at the
+boundary of gmsh's quad algorithm on the circle), and `eg=Block{3}()`
+splits every tetrahedron into 4 hexahedra (from a tetrahedral mesh of size
+`2h`, so the hexahedra have size about `h`). With `verbose`, gmsh prints its
+log and the boundary names.
 
 ```julia
-using HighOrderMeshes
-msh = gmsh_sphere(hmax=0.3, porder=2)
+msh = gmsh_sample(:circle; h=0.2, p=3)                  # curved triangles
+msh = gmsh_sample(:circle; h=0.2, p=3, eg=Block{2}())   # curved quads
+msh = gmsh_sample(:square; h=0.1)                       # unstructured triangles
+msh = gmsh_sample(:sphere; h=0.3, p=2)                  # curved tetrahedra
+msh = gmsh_sample(:cube; h=0.5, eg=Block{3}())          # unstructured hexahedra
 ```
 """
-function gmsh_sphere(; hmax=0.5, porder=1)
-    gmsh = """
+function gmsh_sample(shape::Symbol=:circle; h=0.25, p=1, eg=nothing, verbose=false)
+    haskey(_GMSH_SAMPLES, shape) ||
+        throw(ArgumentError("unknown shape :$shape; choose from $(keys(_GMSH_SAMPLES))"))
+    D, geo = _GMSH_SAMPLES[shape]
+    eg = something(eg, Simplex{D}())
+    eg isa ElementGeometry{D} ||
+        throw(ArgumentError("element geometry $eg does not match the $(D)D shape :$shape"))
+    opts = eg isa Simplex ? "" :
+           D == 2 ? "Mesh.RecombineAll = 1;\nMesh.Algorithm = 6;\nMesh.RecombinationAlgorithm = 3;" :
+                    "Mesh.SubdivisionAlgorithm = 2;"
+    hgmsh = eg isa Block{3} ? 2h : h
+    str = """
         SetFactory("OpenCASCADE");
-        Sphere(1) = {0, 0, 0, 1};
-        Mesh.MeshSizeMax = $hmax;
-    """
-    m1 = gmshstr2msh(gmsh; porder)
+        $geo
+        Mesh.MeshSizeMin = $hgmsh;
+        Mesh.MeshSizeMax = $hgmsh;
+        $opts
+        """
+    gmshstr2msh(str; porder=p, verbose)
 end
+
+# Dimension and OpenCASCADE geometry with physical groups of each sample shape
+const _GMSH_SAMPLES = Dict(
+    :square => (2, """
+        Rectangle(1) = {0, 0, 0, 1, 1};
+        Physical Curve("xmin", 1) = {4};
+        Physical Curve("xmax", 2) = {2};
+        Physical Curve("ymin", 3) = {1};
+        Physical Curve("ymax", 4) = {3};
+        Physical Surface("domain", 1) = {1};"""),
+    :circle => (2, """
+        Disk(1) = {0, 0, 0, 1};
+        Physical Curve("circle", 1) = {1};
+        Physical Surface("domain", 1) = {1};"""),
+    :cube => (3, """
+        Box(1) = {0, 0, 0, 1, 1, 1};
+        Physical Surface("xmin", 1) = {1};
+        Physical Surface("xmax", 2) = {2};
+        Physical Surface("ymin", 3) = {3};
+        Physical Surface("ymax", 4) = {4};
+        Physical Surface("zmin", 5) = {5};
+        Physical Surface("zmax", 6) = {6};
+        Physical Volume("domain", 1) = {1};"""),
+    :sphere => (3, """
+        Sphere(1) = {0, 0, 0, 1};
+        Physical Surface("sphere", 1) = {1};
+        Physical Volume("domain", 1) = {1};"""),
+)

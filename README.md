@@ -32,6 +32,24 @@ Pkg.add(url="https://github.com/popersson/HighOrderMeshes.jl", rev="v0.2.0")
 
 ## Quick Start
 
+### Mesh generation
+
+```julia
+using HighOrderMeshes
+
+msh = mshsquare(8; eg=Simplex{2}(), p=3)        # 128 triangles on [0,1]^2, degree 3
+msh = mshcircle(4; p=3)                         # curved quads on the unit disk
+msh = gmsh_sample(:sphere; h=0.3, p=2)          # curved tetrahedra (needs gmsh)
+
+using DistMesh                                  # curved mesh from a DistMesh mesh
+fd(p) = sqrt(sum(p.^2)) - 1
+msh = HighOrderMesh(distmesh2d(fd, huniform, 0.2, ((-1,-1), (1,1))))
+msh = curve_boundary(set_degree(msh, 4), fd)
+```
+
+See [Mesh generation](https://popersson.github.io/HighOrderMeshes.jl/dev/meshgeneration/)
+in the documentation for all generators.
+
 ### Visualization (Makie.jl)
 
 Visualization is provided through a [Makie.jl](https://docs.makie.org)

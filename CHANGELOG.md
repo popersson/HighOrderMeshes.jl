@@ -2,6 +2,31 @@
 
 ## Unreleased
 
+Mesh generation tools ported from 3DG's `smoothdgnodes` and sample meshes.
+
+- `curve_boundary(m, fd, bndnbrs)` moves the boundary faces of a 2D quad or
+  triangle mesh onto the zero level set of a signed distance function `fd`,
+  with the face nodes at the arclength fractions of the reference nodes and
+  the displacements blended into the elements (Coons for quads, Szabó-Babuška
+  for triangles; 3DG smooths triangles with a Laplacian instead). The mesh
+  stays continuous, also at elements that only touch a moved vertex.
+- `project_points(x, fd)` projects points onto the zero level set of `fd`;
+  `interp_arclength(x, s)` places points at arclength fractions of a polyline.
+- With DistMesh loaded, `HighOrderMesh(dm)` converts a mesh from
+  `distmesh2d` (new package extension `HighOrderMeshesDistMeshExt`).
+- `mshsquare`, `mshcube` and `mshhypercube` take `eg=Simplex{2}()` (2
+  triangles per cell) and `eg=Simplex{3}()` (6 tetrahedra per cell).
+- `mshcircle` takes `eg=Simplex{2}()` for a triangle mesh of the disk, half
+  disk or quarter disk, and checks `shape` before meshing.
+- Breaking: `gmsh_sphere(; hmax, porder)` is replaced by
+  `gmsh_sample(shape; h, p, eg)` with the shapes `:square`, `:circle`,
+  `:cube` and `:sphere`, triangles/tetrahedra or quads/hexahedra, and
+  boundary numbers as in `mshsquare` and `mshcube`. It sets both the minimum
+  and maximum gmsh mesh size to `h`, so `gmsh_sample(:sphere; h=0.5)` is
+  coarser than `gmsh_sphere(hmax=0.5)` was.
+- The docs page "Basic meshes" is now "Mesh generation", with a cheat sheet;
+  the module docstring (`?HighOrderMeshes`) has the same cheat sheet.
+
 Isoparametric h-refinement of curved 2D quad and triangle meshes, ported from
 3DG's `qmshrefine`, `qmshuniref` and `qmshbndlayer`.
 

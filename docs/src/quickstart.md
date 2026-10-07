@@ -15,3 +15,7 @@ plot(msh)
 savemesh("square.hom", msh)
 msh2 = loadmesh("square.hom")
 ```
+
+The [Mesh generation](@ref) page lists every generator with copy-paste
+examples: triangles and tetrahedra, disks, gmsh samples, and curved meshes
+from DistMesh and a distance function.

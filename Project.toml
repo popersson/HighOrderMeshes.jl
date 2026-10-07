@@ -9,12 +9,15 @@ SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 
 [weakdeps]
+DistMesh = "f7ee28b6-bfbf-11e9-3e31-8961b86f052c"
 Makie = "ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a"
 
 [extensions]
+HighOrderMeshesDistMeshExt = "DistMesh"
 HighOrderMeshesMakieExt = "Makie"
 
 [compat]
+DistMesh = "0.2"
 LinearAlgebra = "1.10"
 Makie = "0.24"
 SparseArrays = "1.10"
@@ -22,7 +25,8 @@ StaticArrays = "1"
 julia = "1.10"
 
 [extras]
+DistMesh = "f7ee28b6-bfbf-11e9-3e31-8961b86f052c"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["Test"]
+test = ["DistMesh", "Test"]

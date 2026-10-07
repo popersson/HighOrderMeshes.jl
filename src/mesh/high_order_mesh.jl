@@ -66,6 +66,21 @@ Construct a `HighOrderMesh` from node coordinates `x` and element connectivity `
 
 `bndexpr` is a function `x -> [expr1(x), expr2(x), ...]` where each `expri`
 evaluates to zero on boundary region `i`. Defaults to a single region.
+
+With [DistMesh](https://github.com/JuliaGeometry/DistMesh.jl) loaded,
+`HighOrderMesh(dm; bndexpr)` also converts a mesh `dm` from `distmesh2d` (a
+package extension). Use [`set_degree`](@ref) and [`curve_boundary`](@ref)
+to make it a curved high-order mesh.
+
+```julia
+x  = [0.0 0.0; 1.0 0.0; 0.0 1.0; 1.0 1.0]
+el = [1 2; 2 4; 3 3]                      # two triangles, one column each
+msh = HighOrderMesh(x, el; bndexpr=x -> [x[1], 0])   # 1: x = 0, 2: the rest
+
+using DistMesh
+fd(p) = sqrt(sum(p.^2)) - 1
+msh = HighOrderMesh(distmesh2d(fd, huniform, 0.2, ((-1,-1), (1,1))))
+```
 """
 function HighOrderMesh(fe::FiniteElement{D,G,T},
                        x::AbstractMatrix{T},

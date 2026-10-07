@@ -18,6 +18,24 @@ hexahedra) elements at arbitrary polynomial order.
 
 Visualization is loaded as a package extension: `using Makie` (or a Makie
 backend such as GLMakie or CairoMakie) enables `plot(m)` and `plot(m, u)`.
+
+**Mesh generation cheat sheet** (`p` is the degree, `eg` the element geometry):
+
+```julia
+msh = mshsquare(8)                              # 8x8 quads on [0,1]^2
+msh = mshsquare(8; eg=Simplex{2}(), p=3)        # 128 triangles, degree 3
+msh = mshcube(4; eg=Simplex{3}())               # 384 tetrahedra on [0,1]^3
+msh = mshcircle(4; eg=Simplex{2}(), p=3)        # curved triangles on the unit disk
+msh = gmsh_sample(:sphere; h=0.3, p=2)          # gmsh: :square, :circle, :cube, :sphere
+msh = mshairfoil(:naca0012; aoa=5)              # gmsh: quads around an airfoil
+
+using DistMesh                                  # straight mesh from DistMesh, then curved
+fd(p) = sqrt(sum(p.^2)) - 1
+msh = HighOrderMesh(distmesh2d(fd, huniform, 0.2, ((-1,-1), (1,1))))
+msh = curve_boundary(set_degree(msh, 4), fd)
+```
+
+See the help of each function for more examples.
 """
 module HighOrderMeshes
 
@@ -34,7 +52,8 @@ export boundary_nodes, boundary_distance, set_bnd_numbers!, set_bnd_periodic!, u
 
 # meshgen/
 export mshhypercube, mshcube, mshsquare, mshline, mshcircle
-export ex1mesh, ex1solution, gmsh_sphere
+export ex1mesh, ex1solution, gmsh_sample
+export project_points, interp_arclength, curve_boundary
 export mshairfoil, airfoil_geo, airfoil_coordinates, naca4
 
 # basis/
@@ -76,6 +95,7 @@ include("mesh/refinement.jl")
 # meshgen/
 include("meshgen/basic_meshes.jl")
 include("meshgen/sample_meshes.jl")
+include("meshgen/curved_boundary.jl")
 include("meshgen/airfoil.jl")
 
 # fem/

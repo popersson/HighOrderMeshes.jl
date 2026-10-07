@@ -22,10 +22,12 @@ block elements. Single element type and single polynomial degree per mesh.
 
 - `src/mesh/`: element geometry, the mesh struct, refinement.
 - `src/meshgen/`: mesh generators: basic and sample meshes, `mshairfoil`
-  (with sample airfoil coordinates in `airfoils/`).
+  (with sample airfoil coordinates in `airfoils/`), `curve_boundary` for
+  curving meshes onto a signed distance function.
 - `src/basis/`: polynomials, quadrature, the reference element.
 - `src/io/`: `.hom` binary format, Gmsh import, VTK and 3DG export.
 - `src/viz/`: backend-independent plotting geometry; Makie extension in `ext/`.
+- `ext/`: package extensions for Makie (plotting) and DistMesh (`HighOrderMesh(dm)`).
 - `src/fem/`: finite element prototypes behind the model problems in `examples/fem/`:
   precomputed data (`CGData`, `DGData`), elemental kernels, CG assembly and DG operators.
 - `docs/dev/redesign-plan.md`: the current work plan with per-step instructions.

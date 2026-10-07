@@ -11,7 +11,7 @@ makedocs(
         "Home"          => "index.md",
         "Quick start"   => "quickstart.md",
         "Mesh format"   => "meshformat.md",
-        "Basic meshes"  => "basicmeshes.md",
+        "Mesh generation" => "meshgeneration.md",
         "Solver node sets" => "solvernodes.md",
         "Gmsh import"   => "gmsh.md",
         "File I/O"      => "io.md",
